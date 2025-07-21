@@ -37,10 +37,11 @@ class PinskyRinzelModel:
             'gCa': 10.0, # OK
             'gKC': 15.0, # OK
             'gKAHP': 0.8, # OK
-            'Is': -0.5, # OK
+            #'Is': -0.5, # OK
+            'Is': 0.1, # OK
             'Id': 0.0,  # OK
-            'aCa': 0.002, # not specified
-            'bCa': 0.001  # not specified
+            'aCa': 0.13, # not specified
+            'bCa': 0.075  # not specified
         }
 
         if neuron_type == "spiking":
@@ -194,7 +195,7 @@ class PinskyRinzelModel:
 
         return [dVs_dt, dVd_dt, dCa_dt, dm_dt, dh_dt, dn_dt, ds_dt, dc_dt, dq_dt, dGa_dt_val, dGn_dt_val]
 
-    def simulate(self, t_span, y0=None, external_input_function=None):
+    def simulate(self, t_span, y0=None, external_input_function=None, external_current=None):
         if y0 is None:
             y0_list = [
                 self.initial_conditions['Vs'],
@@ -215,6 +216,7 @@ class PinskyRinzelModel:
         # 外部入力関数を equations に渡すためのラッパー関数
         def ode_func(t, state_vars):
             current_input = external_input_function(t) if external_input_function else 0.0
+            if external_current
             return self.equations(t, state_vars, current_input)
 
         # solve_ivpは指定されたt_evalで結果を返すため、dtを使って生成
@@ -248,10 +250,10 @@ if __name__ == '__main__':
     plt.figure(figsize=(10, 8))
 
     plt.subplot(2, 1, 1)
-    #t_plot_bursting = sol_bursting.t[sol_bursting.t >= 4600]
-    #Vs_plot_bursting = sol_bursting.y[0, sol_bursting.t >= 4600]
-    t_plot_bursting = sol_bursting.t
-    Vs_plot_bursting = sol_bursting.y[0, :]
+    t_plot_bursting = sol_bursting.t[sol_bursting.t >= 4600]
+    Vs_plot_bursting = sol_bursting.y[0, sol_bursting.t >= 4600]
+    #t_plot_bursting = sol_bursting.t
+    #Vs_plot_bursting = sol_bursting.y[0, :]
     plt.plot(t_plot_bursting, Vs_plot_bursting, color='blue')
     plt.title('Figure 2 (a) Bursting Type Neuron (Vs)')
     plt.xlabel('Time (msec)')
@@ -260,10 +262,10 @@ if __name__ == '__main__':
     plt.grid(True)
     
     plt.subplot(2, 1, 2)
-    #t_plot_spiking = sol_spiking.t[sol_spiking.t >= 4600]
-    #Vs_plot_spiking = sol_spiking.y[0, sol_spiking.t >= 4600]
-    t_plot_spiking = sol_spiking.t
-    Vs_plot_spiking = sol_spiking.y[0, :]
+    t_plot_spiking = sol_spiking.t[sol_spiking.t >= 4600]
+    Vs_plot_spiking = sol_spiking.y[0, sol_spiking.t >= 4600]
+    #t_plot_spiking = sol_spiking.t
+    #Vs_plot_spiking = sol_spiking.y[0, :]
     plt.plot(t_plot_spiking, Vs_plot_spiking, color='red')
     plt.title('Figure 2 (b) Spiking Type Neuron (Vs)')
     plt.xlabel('Time (msec)')
