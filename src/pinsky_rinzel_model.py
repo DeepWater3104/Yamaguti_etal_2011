@@ -24,23 +24,23 @@ class PinskyRinzelModel:
 
     def _set_neuron_params(self, neuron_type):
         params = {
-            'Cm': 3.0,
-            'gc': 2.1,
-            'p': 0.5,
-            'E_L': -60.0,
-            'E_Na': 60.0,
-            'E_K': -75.0,
-            'E_Ca': 80.0,
-            'gL': 0.1,
-            'gNa': 30.0,
-            'gKDR': 15.0,
-            'gCa': 10.0,
-            'gKC': 15.0,
-            'gKAHP': 0.8,
-            'Is': -0.5,
-            'Id': 0.0,
-            'aCa': 0.002,
-            'bCa': 0.001
+            'Cm': 3.0, # OK
+            'gc': 2.1, # OK
+            'p': 0.5,  # OK
+            'E_L': -60.0, # OK
+            'E_Na': 60.0, # OK
+            'E_K': -75.0, # OK
+            'E_Ca': 80.0, # OK
+            'gL': 0.1, # not specified
+            'gNa': 30.0, # OK
+            'gKDR': 15.0, # OK
+            'gCa': 10.0, # OK
+            'gKC': 15.0, # OK
+            'gKAHP': 0.8, # OK
+            'Is': -0.5, # OK
+            'Id': 0.0,  # OK
+            'aCa': 0.002, # not specified
+            'bCa': 0.001  # not specified
         }
 
         if neuron_type == "spiking":
@@ -59,102 +59,98 @@ class PinskyRinzelModel:
         }
 
         if synapse_type == "BOTH":
-            params['gAMPA'] = 0.004
-            params['gNMDA'] = 0.01
+            params['gAMPA'] = 0.004 # OK
+            params['gNMDA'] = 0.01 # OK
         elif synapse_type == "AMPA":
-            params['gAMPA'] = 0.01
-            params['gNMDA'] = 0.0
+            params['gAMPA'] = 0.01 # OK
+            params['gNMDA'] = 0.0 # OK
         else:
             raise ValueError("synapse_type must be 'AMPA' or 'BOTH'")
         return params
 
     # --- ionic current ---
-    def I_L(self, V, gL, E_L):
+    def I_L(self, V, gL, E_L): # OK
         return gL * (V - E_L)
 
-    def I_Na(self, Vs, m, h, gNa, E_Na):
-        return gNa * m * m * h * (Vs - E_Na)
+    def I_Na(self, Vs, m, h, gNa, E_Na): # OK
+        m_inf = self.alpha_m(Vs) / (self.alpha_m(Vs) + self.beta_m(Vs))
+        return gNa * m_inf * m_inf * h * (Vs - E_Na)
 
-    def I_K_DR(self, Vs, n, gKDR, E_KDR):
+    def I_K_DR(self, Vs, n, gKDR, E_KDR): # OK
         return gKDR * n * (Vs - E_KDR)
 
-    def I_Ca(self, Vd, s, gCa, E_Ca):
+    def I_Ca(self, Vd, s, gCa, E_Ca): # OK
         return gCa * s * s * (Vd - E_Ca)
 
-    def I_K_C(self, Vd, Ca, c, gKC, VK):
+    def I_K_C(self, Vd, Ca, c, gKC, VK): # OK
         chi_Ca = min(Ca / 250.0, 1.0)
         return gKC * c * chi_Ca * (Vd - VK)
 
-    def I_K_AHP(self, Vd, q, gKAHP, E_KAHP):
+    def I_K_AHP(self, Vd, q, gKAHP, E_KAHP): # OK
         return gKAHP * q * (Vd - E_KAHP)
 
     # -- open-close(alpha) or close-opne(beta) rate for gating varbiables ---
-    def alpha_m(self, Vs):
+    def alpha_m(self, Vs): # OK
         return 0.32 * (-46.9 - Vs) / (np.exp((-46.9 - Vs) / 4.0) - 1)
 
-    def beta_m(self, Vs):
+    def beta_m(self, Vs): # OK
         return 0.28 * (Vs + 19.9) / (np.exp((Vs + 19.9) / 5.0) - 1)
 
-    def alpha_h(self, Vs):
+    def alpha_h(self, Vs): # OK
         return 0.128 * np.exp((-43.0 - Vs) / 18.0)
 
-    def beta_h(self, Vs):
+    def beta_h(self, Vs): # OK
         return 4.0 / (1.0 + np.exp((-20.0 - Vs) / 5.0))
 
-    def alpha_n(self, Vs):
+    def alpha_n(self, Vs): # OK # OK
         return 0.016 * (-24.9 - Vs) / (np.exp((-24.9 - Vs) / 5.0) - 1)
 
-    def beta_n(self, Vs):
+    def beta_n(self, Vs): # OK
         return 0.25 * np.exp((-40.0 - Vs) / 40.0)
 
-    def alpha_s(self, Vd):
-        return 1.0 / (1.0 + np.exp(-0.072 * (Vd - 5.0)))
+    def alpha_s(self, Vd): # OK
+        return 1.6 / (1.0 + np.exp(-0.072 * (Vd - 5.0)))
 
-    def beta_s(self, Vd):
+    def beta_s(self, Vd): # OK
         return 0.02 * (Vd + 8.9) / (np.exp((Vd + 8.9) / 5.0) - 1)
         #return 0.02 * (Vd + 8.9) / (np.exp((Vd + 8.9) / 5.0) - 1)
 
-    def alpha_c(self, Vd):
+    def alpha_c(self, Vd): # OK
         if Vd < -10.0:
-            # 論文の式 (A.15) の前半
             return (np.exp((Vd + 50.0) / 11.0) - np.exp((Vd + 53.5) / 27.0)) / 18.975
         else:
-            # 論文の式 (A.15) の後半。この式は Pinsky & Rinzel 1994 の original appendix に基づく
             return 2.0 * np.exp((-53.5 - Vd) / 27.0)
 
-    def beta_c(self, Vd):
+    def beta_c(self, Vd): # OK
         if Vd < -10.0:
-            # 論文の式 (A.16) の前半
             return 2.0 * np.exp((-53.5 - Vd) / 27.0) - self.alpha_c(Vd)
         else:
-            # 論文の式 (A.16) の後半
             return 0.0
 
-    def alpha_q(self, Ca):
+    def alpha_q(self, Ca): # OK
         return min(0.00002 * Ca, 0.01)
 
-    def beta_q(self, Ca):
+    def beta_q(self, Ca): # OK
         return 0.001
 
     # --- general formalism of time derivative in gating variables ---
     def dy_dt(self, y, alpha_y_func, beta_y_func, *args):
-        """ゲーティング変数dy/dtの一般形"""
         alpha_y = alpha_y_func(*args)
         beta_y = beta_y_func(*args)
         return alpha_y * (1 - y) - beta_y * y
 
     # -- synaptic current ---
-    def I_AMPA(self, Vd, Ga, VAMPA, gAMPA):
+    def I_AMPA(self, Vd, Ga, VAMPA, gAMPA): # OK
         return gAMPA * Ga * (Vd - VAMPA)
 
-    def I_NMDA(self, Vd, Gn, VNMDA, gNMDA):
+    def I_NMDA(self, Vd, Gn, VNMDA, gNMDA): # OK
         Mg_block = 1.0 / (1.0 + 0.28 * np.exp(-0.062 * Vd))
         return gNMDA * Gn * Mg_block * (Vd - VNMDA)
 
-    def dGa_dt(self, Ga, sa):
+    def dGa_dt(self, Ga, sa): # OK
         return sa - Ga / 2.0
 
-    def dGn_dt(self, Gn, sn):
+    def dGn_dt(self, Gn, sn): # OK
         return sn - Gn / 150.0
 
     def equations(self, t, state_vars, input_signal_val=0.0):
@@ -169,7 +165,7 @@ class PinskyRinzelModel:
         sn = input_signal_val
 
         iL_soma = self.I_L(Vs, self.params['gL'], self.params['E_L'])
-        iNa = self.I_Na(Vs, self.alpha_m(Vs), h, self.params['gNa'], self.params['E_Na'])
+        iNa = self.I_Na(Vs, m, h, self.params['gNa'], self.params['E_Na'])
         iKDR = self.I_K_DR(Vs, n, self.params['gKDR'], self.params['E_K'])
 
         iL_dend = self.I_L(Vd, self.params['gL'], self.params['E_L'])
