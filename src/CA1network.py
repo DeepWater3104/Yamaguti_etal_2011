@@ -9,7 +9,7 @@ class CA1Network:
     参照論文: Yamaguti et al. (2011) Neural Networks, 24, 43-53.
     """
     def __init__(self, num_ca1_neurons=100, num_ca3_patterns=3,
-                 neuron_type="bursting", synapse_type="NMDA", dt=0.05, seed=None):
+                 neuron_type="bursting", synapse_type="BOTH", dt=0.05, seed=None):
         """
         CA1ネットワークを初期化する。
         Args:
@@ -304,6 +304,7 @@ if __name__ == '__main__':
 
     if network_sol is not None:
         # 結果のプロット (最初の数ニューロンのVs)
+        from matplotlib import pyplot as plt
         plt.figure(figsize=(12, 8))
         num_neurons_to_plot = min(5, num_ca1) # 最初の5ニューロンをプロット
 
