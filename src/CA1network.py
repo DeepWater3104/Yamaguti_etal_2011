@@ -153,6 +153,57 @@ class CA1Network:
         
         return np.array(all_vs_data)
 
+    def get_averaged_soma_potentials(self, sol, t_interval_T):
+        if sol is None:
+            print("Simulation result (sol) is None. Cannot average Vs data.")
+            return None
+        
+        all_vs_matrix = self.get_all_soma_membrane_potentials(sol)
+        if all_vs_matrix is None:
+            return None
+
+        num_time_steps = sol.t.shape[0]
+        num_intervals = int(num_time_steps * self.dt / t_interval_T)
+        
+        averaged_vs_matrix = np.zeros((self.num_ca1_neurons, num_intervals))
+        
+        for k in range(num_intervals):
+            start_time_idx = int((k * t_interval_T) / self.dt)
+            end_time_idx = int(((k + 1) * t_interval_T) / self.dt)
+            
+            # 各ニューロンについて、この時間区間の膜電位の平均を計算
+            # np.meanは axis=1 で時間方向の平均を取る
+            # all_vs_matrix[neuron_idx, time_idx]
+            averaged_vs_matrix[:, k] = np.mean(all_vs_matrix[:, start_time_idx:end_time_idx], axis=1)
+            
+        return averaged_vs_matrix
+
+    def get_spike_counts(self, sol, t_interval_T):
+        if sol is None:
+            print("Simulation result (sol) is None. Cannot count spikes.")
+            return None
+        
+        all_vs_matrix = self.get_all_soma_membrane_potentials(sol)
+        if all_vs_matrix is None:
+            return None
+
+        num_time_steps = sol.t.shape[0]
+        num_intervals = int(num_time_steps * self.dt / t_interval_T) 
+        
+        spike_counts_matrix = np.zeros((self.num_ca1_neurons, num_intervals))
+        
+        for k in range(num_intervals): 
+            start_time_idx = int((k * t_interval_T) / self.dt)
+            end_time_idx = int(((k + 1) * t_interval_T) / self.dt)
+            
+            # 各ニューロンについて、この時間区間のスパイク数をカウント
+            for neuron_idx in range(self.num_ca1_neurons):
+                vs_trace_in_interval = all_vs_matrix[neuron_idx, start_time_idx:end_time_idx]
+                # PinskyRinzelModel インスタンスの count_spikes_in_trace メソッドを使用
+                spike_counts_matrix[neuron_idx, k] = self.ca1_neurons[neuron_idx].count_spikes_in_trace(vs_trace_in_interval)
+            
+        return spike_counts_matrix
+
 
 if __name__ == '__main__':
     # Parameters
@@ -222,30 +273,24 @@ if __name__ == '__main__':
 
         plt.close()
 
-        # 全ニューロンの膜電位を取得
         all_vs_matrix = ca1_network.get_all_soma_membrane_potentials(network_sol)
-        
         if all_vs_matrix is not None:
             print(f"Shape of all Vs matrix: {all_vs_matrix.shape}")
 
-            # --- ヒートマップのプロット ---
             plt.figure(figsize=(15, 7))
             plt.imshow(all_vs_matrix, aspect='auto', cmap='hot',
                        extent=[network_sol.t.min(), network_sol.t.max(), ca1_network.num_ca1_neurons - 0.5, -0.5],
-                       origin='upper', vmin=-80, vmax=40) # 膜電位の典型的な範囲にvmin/vmaxを設定
+                       origin='upper', vmin=-80, vmax=40)
             plt.colorbar(label='Soma Membrane Potential (mV)')
             plt.title(f'Soma Membrane Potentials of all {ca1_network.num_ca1_neurons} CA1 Neurons')
             plt.xlabel('Time (msec)')
             plt.ylabel('Neuron Index')
 
-            # 入力パターンの表示 (ヒートマップの上に追加)
             y_min_ax, y_max_ax = plt.gca().get_ylim() 
             for k_idx, pattern_idx in enumerate(ca3_input_sequence):
                 start_time = k_idx * t_interval_T
                 end_time = start_time + duration_delta
-                # 入力期間を縦の帯で表示
                 plt.axvspan(start_time, end_time, color=f'C{pattern_idx}', alpha=0.05) 
-                # 入力パターン番号をテキストで表示
                 plt.text(start_time + duration_delta/2, y_max_ax * 0.95, str(pattern_idx), 
                          horizontalalignment='center', verticalalignment='top', fontsize=8, color='white',
                          bbox=dict(facecolor=f'C{pattern_idx}', alpha=0.5, edgecolor='none', boxstyle='round,pad=0.2'))
@@ -253,6 +298,90 @@ if __name__ == '__main__':
             plt.tight_layout()
             plt.savefig("ca1_network_all_vs_heatmap.png")
 
+        plt.close()
+
+        # 必要なデータを全て取得
+        all_vs_matrix = ca1_network.get_all_soma_membrane_potentials(network_sol)
+        averaged_vs_matrix = ca1_network.get_averaged_soma_potentials(network_sol, t_interval_T)
+        spike_counts_matrix = ca1_network.get_spike_counts(network_sol, t_interval_T)
+        
+        if all_vs_matrix is not None and averaged_vs_matrix is not None and spike_counts_matrix is not None:
+            print(f"Shape of continuous Vs matrix: {all_vs_matrix.shape}")
+            print(f"Shape of averaged Vs matrix: {averaged_vs_matrix.shape}")
+            print(f"Shape of spike counts matrix: {spike_counts_matrix.shape}")
+
+            # --- 3つのヒートマップを並べてプロット ---
+            fig, axes = plt.subplots(3, 1, figsize=(15, 18), sharex=False) # sharex=False for different x-axis scales
+
+            # Plot 1: Continuous Time Soma Potential Heatmap
+            ax0 = axes[0]
+            im0 = ax0.imshow(all_vs_matrix, aspect='auto', cmap='hot',
+                             extent=[network_sol.t.min(), network_sol.t.max(), ca1_network.num_ca1_neurons - 0.5, -0.5],
+                             origin='upper', vmin=-80, vmax=40)
+            fig.colorbar(im0, ax=ax0, label='Soma Membrane Potential (mV)')
+            ax0.set_title('1. Continuous Time Soma Potential Heatmap')
+            ax0.set_xlabel('Time (msec)')
+            ax0.set_ylabel('Neuron Index')
+            
+            # Input pattern overlay for continuous plot
+            y_min_ax0, y_max_ax0 = ax0.get_ylim()
+            for k_idx, pattern_idx in enumerate(ca3_input_sequence):
+                start_time = k_idx * t_interval_T
+                end_time = start_time + duration_delta
+                ax0.axvspan(start_time, end_time, color=f'C{pattern_idx}', alpha=0.05)
+                ax0.text(start_time + duration_delta/2, y_max_ax0 * 0.95, str(pattern_idx), 
+                         horizontalalignment='center', verticalalignment='top', fontsize=8, color='white',
+                         bbox=dict(facecolor=f'C{pattern_idx}', alpha=0.5, edgecolor='none', boxstyle='round,pad=0.2'))
+
+
+            # Plot 2: Averaged Soma Potential Heatmap
+            ax1 = axes[1]
+            interval_times = np.arange(averaged_vs_matrix.shape[1]) * t_interval_T + t_interval_T / 2
+            im1 = ax1.imshow(averaged_vs_matrix, aspect='auto', cmap='hot',
+                             extent=[interval_times.min() - t_interval_T/2, interval_times.max() + t_interval_T/2, 
+                                     ca1_network.num_ca1_neurons - 0.5, -0.5],
+                             origin='upper', vmin=-80, vmax=40)
+            fig.colorbar(im1, ax=ax1, label='Averaged Soma Membrane Potential (mV)')
+            ax1.set_title('2. Averaged Soma Potential Heatmap (Discrete Intervals)')
+            ax1.set_xlabel('Interval Time (msec)')
+            ax1.set_ylabel('Neuron Index')
+
+            # Input pattern overlay for averaged plot
+            y_min_ax1, y_max_ax1 = ax1.get_ylim()
+            for k_idx, pattern_idx in enumerate(ca3_input_sequence):
+                start_interval_time = k_idx * t_interval_T
+                end_interval_time = (k_idx + 1) * t_interval_T
+                ax1.axvspan(start_interval_time, end_interval_time, color=f'C{pattern_idx}', alpha=0.05)
+                ax1.text(start_interval_time + t_interval_T/2, y_max_ax1 * 0.95, str(pattern_idx),
+                         horizontalalignment='center', verticalalignment='top', fontsize=8, color='white',
+                         bbox=dict(facecolor=f'C{pattern_idx}', alpha=0.5, edgecolor='none', boxstyle='round,pad=0.2'))
+
+
+            # Plot 3: Spike Count Heatmap
+            ax2 = axes[2]
+            # vmax はスパイク数の最大値に基づいて調整、0の場合は1とする
+            max_spikes = np.max(spike_counts_matrix) if np.max(spike_counts_matrix) > 0 else 1 
+            im2 = ax2.imshow(spike_counts_matrix, aspect='auto', cmap='hot', # スパイク数は整数なのでviridisなどが見やすい
+                             extent=[interval_times.min() - t_interval_T/2, interval_times.max() + t_interval_T/2, 
+                                     ca1_network.num_ca1_neurons - 0.5, -0.5],
+                             origin='upper', vmin=0, vmax=max_spikes)
+            fig.colorbar(im2, ax=ax2, label='Number of Spikes')
+            ax2.set_title('3. Spike Count Heatmap (Discrete Intervals)')
+            ax2.set_xlabel('Interval Time (msec)')
+            ax2.set_ylabel('Neuron Index')
+            
+            # Input pattern overlay for spike count plot
+            y_min_ax2, y_max_ax2 = ax2.get_ylim()
+            for k_idx, pattern_idx in enumerate(ca3_input_sequence):
+                start_interval_time = k_idx * t_interval_T
+                end_interval_time = (k_idx + 1) * t_interval_T
+                ax2.axvspan(start_interval_time, end_interval_time, color=f'C{pattern_idx}', alpha=0.05)
+                ax2.text(start_interval_time + t_interval_T/2, y_max_ax2 * 0.95, str(pattern_idx),
+                         horizontalalignment='center', verticalalignment='top', fontsize=8, color='white',
+                         bbox=dict(facecolor=f'C{pattern_idx}', alpha=0.5, edgecolor='none', boxstyle='round,pad=0.2'))
+
+            plt.tight_layout()
+            plt.savefig("ca1_network_all_heatmaps.png")
 
     else:
         print("Network simulation failed. Plotting skipped.")

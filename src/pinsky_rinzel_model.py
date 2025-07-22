@@ -226,6 +226,12 @@ class PinskyRinzelModel:
 
         return sol
 
+    def count_spikes_in_trace(self, Vs_trace):
+        spikes = 0
+        above_threshold = Vs_trace >= self.V_th
+        spike_indices = np.where(np.diff(above_threshold.astype(int)) == 1)[0]
+        spikes = len(spike_indices)
+        return spikes
 
 if __name__ == '__main__':
     # ---  for replication of figure 2 in the original paper ---
