@@ -37,8 +37,7 @@ class PinskyRinzelModel:
             'gCa': 10.0, # OK
             'gKC': 15.0, # OK
             'gKAHP': 0.8, # OK
-            #'Is': -0.5, # OK
-            'Is': 0.1, # OK
+            'Is': -0.5, # OK
             'Id': 0.0,  # OK
             'aCa': 0.13, # not specified
             'bCa': 0.075  # not specified
@@ -154,12 +153,12 @@ class PinskyRinzelModel:
     def dGn_dt(self, Gn, sn): # OK
         return sn - Gn / 150.0
 
-    def equations(self, t, state_vars, input_signal_val=0.0):
+    def equations(self, t, state_vars, input_signal_val=0.0, input_current_val=0.0):
         Vs, Vd, Ca, m, h, n, s, c, q, Ga, Gn = state_vars
         p = self.params['p']
         Cm = self.params['Cm']
         gc = self.params['gc']
-        Is = self.params['Is']
+        Is = self.params['Is'] + input_current_val
         Id = self.params['Id']
 
         sa = input_signal_val
@@ -195,7 +194,7 @@ class PinskyRinzelModel:
 
         return [dVs_dt, dVd_dt, dCa_dt, dm_dt, dh_dt, dn_dt, ds_dt, dc_dt, dq_dt, dGa_dt_val, dGn_dt_val]
 
-    def simulate(self, t_span, y0=None, external_input_function=None, external_current=None):
+    def simulate(self, t_span, y0=None, spike_input_function=None, current_input_function=None):
         if y0 is None:
             y0_list = [
                 self.initial_conditions['Vs'],
@@ -215,9 +214,9 @@ class PinskyRinzelModel:
 
         # 外部入力関数を equations に渡すためのラッパー関数
         def ode_func(t, state_vars):
-            current_input = external_input_function(t) if external_input_function else 0.0
-            if external_current
-            return self.equations(t, state_vars, current_input)
+            spike_input   = spike_input_function(t) if spike_input_function else 0.0
+            current_input = current_input_function(t) if current_input_function else 0.0
+            return self.equations(t, state_vars, spike_input, current_input)
 
         # solve_ivpは指定されたt_evalで結果を返すため、dtを使って生成
         t_eval = np.arange(t_span[0], t_span[1], self.dt)
@@ -233,18 +232,25 @@ if __name__ == '__main__':
     import numpy as np
     import matplotlib.pyplot as plt
 
-    t_span_bursting = (0, 6000)
+    t_span = (0, 6000)
     def zero_input_func(t):
         return 0.0
 
+    def DC_input_func(t):
+        if t < 5000:
+            return 0.0
+        else:
+            return 0.5
+
+
     print("Start Simulating Bursting Type Neuron...")
     bursting_neuron = PinskyRinzelModel(neuron_type="bursting", synapse_type="AMPA", dt=0.05)
-    sol_bursting = bursting_neuron.simulate(t_span_bursting, external_input_function=zero_input_func)
+    sol_bursting = bursting_neuron.simulate(t_span, spike_input_function=zero_input_func, current_input_function=DC_input_func)
     print("End Simulating Bursting Type Neuron...")
     
     print("Start Simulating Spiking Type Neuron...")
     spiking_neuron = PinskyRinzelModel(neuron_type="spiking", synapse_type="AMPA", dt=0.05)
-    sol_spiking = spiking_neuron.simulate(t_span_bursting, external_input_function=zero_input_func)
+    sol_spiking  = spiking_neuron.simulate(t_span, spike_input_function=zero_input_func, current_input_function=DC_input_func)
     print("End Simulating Spiking Type Neuron...")
     
     plt.figure(figsize=(10, 8))
