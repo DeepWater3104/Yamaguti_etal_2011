@@ -18,7 +18,7 @@ class CA1Network:
         self.num_ca3_neurons = num_ca1_neurons # 仮にCA3ニューロン数とCA1ニューロン数を同じにする
         self.p_fi = 0.1 # 論文 Section 3.1, probability of taking value 1 is p_fi=0.1
         self.ca3_elementary_patterns = self._generate_ca3_patterns()
-        self.tilde_w = 0.1 # scaling factor for synaptic weight
+        self.tilde_w = 0.01 # scaling factor for synaptic weight
         self.ca3_ca1_weights = self._initialize_ca3_ca1_weights()
         self.initial_network_state = self._get_initial_network_state()
 
