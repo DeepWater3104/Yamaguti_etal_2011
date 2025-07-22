@@ -94,30 +94,122 @@ class CA1Network:
 
     def simulate_network(self, t_span, ca3_input_sequence, ca3_input_interval_T,
                          ca3_input_duration_delta):
+        #def network_input_func(t):
+        #    k = int(t / ca3_input_interval_T) # 現在のTインターバルのインデックス
+        #    
+        #    if k < len(ca3_input_sequence):
+        #        if (t >= k * ca3_input_interval_T) and (t < k * ca3_input_interval_T + ca3_input_duration_delta):
+        #            return ca3_input_sequence[k] # 現在のCA3パターンインデックスを返す
+        #    return -1 # 入力がない期間は-1を返す (network_equationsでゼロ入力として処理)
+
+        #initial_y0 = self.initial_network_state
+
+        #t_eval = np.arange(t_span[0], t_span[1], self.dt)
+
+        #def ode_wrapper(t, all_state_vars):
+        #    current_ca3_pattern_idx = network_input_func(t)
+        #    return self.network_equations(t, all_state_vars, current_ca3_pattern_idx)
+
+        #try:
+        #    #sol = solve_ivp(ode_wrapper, t_span, initial_y0, method='RK45', t_eval=t_eval, rtol=1e-5, atol=1e-8)
+        #    import tqdm
+        #    with tqdm.tqdm(total=1000, unit="‰") as pbar:
+        #        sol = solve_ivp(
+        #            ode_wrapper,
+        #            t_span,
+        #            initial_y0,
+        #            method='RK45',
+        #            t_eval=t_eval,
+        #            rtol=1e-5,
+        #            atol=1e-8
+        #        )
+        #except ValueError as e:
+        #    print(f"Error during network simulation: {e}")
+        #    print("This might be due to numerical instability. Consider adjusting initial conditions, dt, or solver tolerances.")
+        #    return None
+
+        #return sol
+
+
+        from tqdm import tqdm
         def network_input_func(t):
-            k = int(t / ca3_input_interval_T) # 現在のTインターバルのインデックス
-            
+            k = int(t / ca3_input_interval_T) 
             if k < len(ca3_input_sequence):
                 if (t >= k * ca3_input_interval_T) and (t < k * ca3_input_interval_T + ca3_input_duration_delta):
-                    return ca3_input_sequence[k] # 現在のCA3パターンインデックスを返す
-            return -1 # 入力がない期間は-1を返す (network_equationsでゼロ入力として処理)
+                    return ca3_input_sequence[k]
+            return -1
 
         initial_y0 = self.initial_network_state
 
-        t_eval = np.arange(t_span[0], t_span[1], self.dt)
+        t_eval = np.arange(t_span[0], t_span[1], self.dt) 
 
         def ode_wrapper(t, all_state_vars):
             current_ca3_pattern_idx = network_input_func(t)
             return self.network_equations(t, all_state_vars, current_ca3_pattern_idx)
+        
+        # tqdm のプログレスバーをここに追加
+        # total はシミュレーションの総時間 (t_span[1]) を指定し、単位を "ms" にする
+        with tqdm(total=int(t_span[1]), unit="ms", desc="Network Sim Progress") as pbar:
+            # コールバック関数: solve_ivp の t 値を使って tqdm を更新
+            # solve_ivp の event にプログレスバー更新を仕込む
+            # scipy 1.4.0 以降では `events` をコールバックとして使用できる
+            # callback_event_t はプログレスバーを更新する間隔 (ms)
+            callback_interval = 100 # 例: 100ms ごとにプログレスバーを更新
 
-        try:
-            sol = solve_ivp(ode_wrapper, t_span, initial_y0, method='RK45', t_eval=t_eval, rtol=1e-5, atol=1e-8)
-        except ValueError as e:
-            print(f"Error during network simulation: {e}")
-            print("This might be due to numerical instability. Consider adjusting initial conditions, dt, or solver tolerances.")
-            return None
+            def progress_callback(t, y):
+                # t が現在の積分時間
+                # pbar.n は現在のプログレスバーの値
+                # 更新が必要な量 (t - pbar.n) を計算して update
+                # t は float なので、int に丸めて差分を取る
+                pbar.update(int(t) - pbar.n) 
+                return 0 # 0を返すとイベントが繰り返される
+
+            # events に progress_callback を渡し、direction を 1 (増加方向) に設定
+            # events の value は `value = lambda t, y: t % callback_interval` とし、
+            # `terminal=False` と `direction=1` を使うと、t が callback_interval の倍数になるたびにイベントがトリガーされる。
+            # よりシンプルな方法として、t-pbar.n を直接利用。
+            
+            # 簡潔に TQDM をコールバックとして使うには、直接 `events` に渡すのではなく、
+            # `events` オプションに `progress_callback` 関数を渡し、
+            # `t_events` でイベントを発生させる時間を指定する方法が一般的です。
+            
+            # もっともシンプルなのは、solve_ivpが完了した後に、完了した時間ステップ数でプログレスバーを更新する方法です。
+            # しかし、リアルタイム性がないので、ここでは `events` を使用します。
+
+            # Progress event: returns 0 when t is a multiple of callback_interval
+            progress_event = lambda t, y: (t % callback_interval) - callback_interval * (1 if t > 0 and (t % callback_interval) == 0 else 0)
+            progress_event.terminal = False # イベント発生で停止しない
+            progress_event.direction = 1 # tが増加する方向でのみイベントを検出
+
+            try:
+                sol = solve_ivp(
+                    ode_wrapper, 
+                    t_span, 
+                    initial_y0, 
+                    method='RK45', 
+                    t_eval=t_eval, 
+                    rtol=1e-5, 
+                    atol=1e-8,
+                    # events=[progress_event], # イベント発生でプログレスバーを更新する
+                    # dense_output=True # dense_output=True は sol.sol() を使う場合に必要だが、progress_callback では不要
+                    # events 引数に直接コールバック関数を渡す方法は、scipyのバージョンや使い方によっては複雑になることがあります。
+                    # 最も安定しているのは、solve_ivp 完了後に更新する方法か、
+                    # 自分で微小時間ステップでループを回し、その中で update することです。
+                    # ここでは、簡潔さと安定性を優先し、t_eval の進捗を更新する方式に戻し、見た目を改善します。
+                    # （solve_ivpがt_evalの全点を計算しようと頑張っている間は、pbar.update(t)が呼ばれないため）
+                    # ユーザーのコードに影響が少ないように、メインの実行ブロックで進捗を表示させます。
+                )
+                # リアルタイム更新の代わりに、計算された最終時間ステップでプログレスバーを更新
+                pbar.update(int(sol.t[-1]) - pbar.n) # 計算の最終時間で更新
+                pbar.close()
+            except ValueError as e:
+                pbar.close()
+                print(f"Error during simulation: {e}")
+                print("This might be due to numerical instability. Consider adjusting initial conditions, dt, or solver tolerances.")
+                return None
 
         return sol
+
 
     def extract_neuron_data(self, sol, neuron_idx):
         num_vars_per_neuron = len(self.ca1_neurons[0].initial_conditions)
