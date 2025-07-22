@@ -139,6 +139,20 @@ class CA1Network:
         }
         return data
 
+    def get_all_soma_membrane_potentials(self, sol):
+        if sol is None:
+            print("Simulation result (sol) is None. Cannot extract Vs data.")
+            return None
+
+        num_vars_per_neuron = len(self.ca1_neurons[0].initial_conditions)
+        
+        all_vs_data = []
+        for i in range(self.num_ca1_neurons):
+            vs_idx = i * num_vars_per_neuron # 各ニューロンのVsのインデックス
+            all_vs_data.append(sol.y[vs_idx, :])
+        
+        return np.array(all_vs_data)
+
 
 if __name__ == '__main__':
     # Parameters
@@ -198,7 +212,6 @@ if __name__ == '__main__':
             plt.text(start_time + duration_delta/2, y_max * 0.9, str(pattern_idx), 
                      horizontalalignment='center', verticalalignment='top', fontsize=10, color='gray')
 
-
         plt.title(f'CA1 Network Simulation (N={num_ca1}, m={num_ca3_patterns}, T={t_interval_T}ms, delta={duration_delta}ms)')
         plt.xlabel('Time (msec)')
         plt.ylabel('Soma Membrane Potential (mV)')
@@ -206,5 +219,40 @@ if __name__ == '__main__':
         plt.grid(True)
         plt.tight_layout()
         plt.savefig("ca1_network_simulation.png")
+
+        plt.close()
+
+        # 全ニューロンの膜電位を取得
+        all_vs_matrix = ca1_network.get_all_soma_membrane_potentials(network_sol)
+        
+        if all_vs_matrix is not None:
+            print(f"Shape of all Vs matrix: {all_vs_matrix.shape}")
+
+            # --- ヒートマップのプロット ---
+            plt.figure(figsize=(15, 7))
+            plt.imshow(all_vs_matrix, aspect='auto', cmap='hot',
+                       extent=[network_sol.t.min(), network_sol.t.max(), ca1_network.num_ca1_neurons - 0.5, -0.5],
+                       origin='upper', vmin=-80, vmax=40) # 膜電位の典型的な範囲にvmin/vmaxを設定
+            plt.colorbar(label='Soma Membrane Potential (mV)')
+            plt.title(f'Soma Membrane Potentials of all {ca1_network.num_ca1_neurons} CA1 Neurons')
+            plt.xlabel('Time (msec)')
+            plt.ylabel('Neuron Index')
+
+            # 入力パターンの表示 (ヒートマップの上に追加)
+            y_min_ax, y_max_ax = plt.gca().get_ylim() 
+            for k_idx, pattern_idx in enumerate(ca3_input_sequence):
+                start_time = k_idx * t_interval_T
+                end_time = start_time + duration_delta
+                # 入力期間を縦の帯で表示
+                plt.axvspan(start_time, end_time, color=f'C{pattern_idx}', alpha=0.05) 
+                # 入力パターン番号をテキストで表示
+                plt.text(start_time + duration_delta/2, y_max_ax * 0.95, str(pattern_idx), 
+                         horizontalalignment='center', verticalalignment='top', fontsize=8, color='white',
+                         bbox=dict(facecolor=f'C{pattern_idx}', alpha=0.5, edgecolor='none', boxstyle='round,pad=0.2'))
+
+            plt.tight_layout()
+            plt.savefig("ca1_network_all_vs_heatmap.png")
+
+
     else:
         print("Network simulation failed. Plotting skipped.")
