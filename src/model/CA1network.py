@@ -158,7 +158,6 @@ class CA1Network:
             print("Simulation result (sol) is None. Cannot average Vs data.")
             return None
         
-        all_vs_matrix = self.get_all_soma_membrane_potentials(sol)
         if all_vs_matrix is None:
             return None
 
@@ -183,7 +182,6 @@ class CA1Network:
             print("Simulation result (sol) is None. Cannot count spikes.")
             return None
         
-        all_vs_matrix = self.get_all_soma_membrane_potentials(sol)
         if all_vs_matrix is None:
             return None
 
@@ -273,7 +271,6 @@ if __name__ == '__main__':
 
         plt.close()
 
-        all_vs_matrix = ca1_network.get_all_soma_membrane_potentials(network_sol)
         if all_vs_matrix is not None:
             print(f"Shape of all Vs matrix: {all_vs_matrix.shape}")
 
@@ -300,11 +297,10 @@ if __name__ == '__main__':
 
         plt.close()
 
-        # 必要なデータを全て取得
         all_vs_matrix = ca1_network.get_all_soma_membrane_potentials(network_sol)
         averaged_vs_matrix = ca1_network.get_averaged_soma_potentials(network_sol, t_interval_T)
         spike_counts_matrix = ca1_network.get_spike_counts(network_sol, t_interval_T)
-        
+
         if all_vs_matrix is not None and averaged_vs_matrix is not None and spike_counts_matrix is not None:
             print(f"Shape of continuous Vs matrix: {all_vs_matrix.shape}")
             print(f"Shape of averaged Vs matrix: {averaged_vs_matrix.shape}")
@@ -322,7 +318,7 @@ if __name__ == '__main__':
             ax0.set_title('1. Continuous Time Soma Potential Heatmap')
             ax0.set_xlabel('Time (msec)')
             ax0.set_ylabel('Neuron Index')
-            
+
             # Input pattern overlay for continuous plot
             y_min_ax0, y_max_ax0 = ax0.get_ylim()
             for k_idx, pattern_idx in enumerate(ca3_input_sequence):
@@ -369,7 +365,7 @@ if __name__ == '__main__':
             ax2.set_title('3. Spike Count Heatmap (Discrete Intervals)')
             ax2.set_xlabel('Interval Time (msec)')
             ax2.set_ylabel('Neuron Index')
-            
+
             # Input pattern overlay for spike count plot
             y_min_ax2, y_max_ax2 = ax2.get_ylim()
             for k_idx, pattern_idx in enumerate(ca3_input_sequence):
@@ -383,5 +379,39 @@ if __name__ == '__main__':
             plt.tight_layout()
             plt.savefig("ca1_network_all_heatmaps.png")
 
+            # analysis
+            all_vs_matrix = ca1_network.get_all_soma_membrane_potentials(network_sol)
+            averaged_vs_matrix = ca1_network.get_averaged_soma_potentials(network_sol, t_interval_T)
+            spike_counts_matrix = ca1_network.get_spike_counts(network_sol, t_interval_T)
+            fig_pca = plt.figure(figsize=(10, 8))
+            ax_pca = fig_pca.add_subplot(111, projection='3d')
+
+            from sklearn.decomposition import PCA # PCAのために追加
+
+            print("\nStarting PCA and 3D plotting (no color coding)...")
+            X_pca = averaged_vs_matrix.T 
+            print(f"Shape of data for PCA (intervals x neurons): {X_pca.shape}")
+            pca = PCA(n_components=3)
+            principal_components = pca.fit_transform(X_pca)
+            print(f"Shape of principal components: {principal_components.shape}")
+            print(f"Explained variance ratio: {pca.explained_variance_ratio_}")
+            print(f"Cumulative explained variance: {np.sum(pca.explained_variance_ratio_)}")
+            for i in range(sequence_length):
+                if i > 150:
+                    if ca3_input_sequence[i] == selected_numbers[0]:
+                        ax_pca.scatter(principal_components[i, 0], principal_components[i, 1], principal_components[i, 2], color="r", s=20, alpha=0.7)
+                    elif ca3_input_sequence[i] == selected_numbers[1]:
+                        ax_pca.scatter(principal_components[i, 0], principal_components[i, 1], principal_components[i, 2], color="b", s=20, alpha=0.7)
+                    elif ca3_input_sequence[i] == selected_numbers[2]:
+                        ax_pca.scatter(principal_components[i, 0], principal_components[i, 1], principal_components[i, 2], color="y", s=20, alpha=0.7)
+                    ax_pca.set_box_aspect((1, 1, 0.5)) 
+                    ax_pca.set_xlabel('Principal Component 1 (u1)')
+                    ax_pca.set_ylabel('Principal Component 2 (u2)')
+                    ax_pca.set_zlabel('Principal Component 3 (u3)')
+                    ax_pca.set_title(f'PCA of Averaged Soma Potentials (m={ca1_network.num_ca3_patterns_input})')
+                    ax_pca.grid(True)
+                    plt.tight_layout()
+                    plt.savefig("ca1_network_pca_3d_plot.png")
+                    print("PCA 3D plot saved successfully.")
     else:
         print("Network simulation failed. Plotting skipped.")
