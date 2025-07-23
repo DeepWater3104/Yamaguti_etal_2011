@@ -249,6 +249,16 @@ if __name__ == '__main__':
         plt.figure(figsize=(12, 8))
         num_neurons_to_plot = min(5, num_ca1)
 
+        # transform data
+        all_vs_matrix = ca1_network.get_all_soma_membrane_potentials(network_sol)
+        averaged_vs_matrix = ca1_network.get_averaged_soma_potentials(network_sol, t_interval_T)
+        spike_counts_matrix = ca1_network.get_spike_counts(network_sol, t_interval_T)
+        print(f"Shape of continuous Vs matrix: {all_vs_matrix.shape}")
+        print(f"Shape of averaged Vs matrix: {averaged_vs_matrix.shape}")
+        print(f"Shape of spike counts matrix: {spike_counts_matrix.shape}")
+
+
+        # figure 1
         for i in range(num_neurons_to_plot):
             neuron_data = ca1_network.extract_neuron_data(network_sol, i)
             plt.plot(network_sol.t, neuron_data['Vs'], label=f'Neuron {i} Vs')
@@ -268,150 +278,117 @@ if __name__ == '__main__':
         plt.grid(True)
         plt.tight_layout()
         plt.savefig("ca1_network_simulation.png")
-
         plt.close()
 
-        if all_vs_matrix is not None:
-            print(f"Shape of all Vs matrix: {all_vs_matrix.shape}")
 
-            plt.figure(figsize=(15, 7))
-            plt.imshow(all_vs_matrix, aspect='auto', cmap='hot',
-                       extent=[network_sol.t.min(), network_sol.t.max(), ca1_network.num_ca1_neurons - 0.5, -0.5],
-                       origin='upper', vmin=-80, vmax=40)
-            plt.colorbar(label='Soma Membrane Potential (mV)')
-            plt.title(f'Soma Membrane Potentials of all {ca1_network.num_ca1_neurons} CA1 Neurons')
-            plt.xlabel('Time (msec)')
-            plt.ylabel('Neuron Index')
+        # figure 2
+        # --- 3つのヒートマップを並べてプロット ---
+        fig, axes = plt.subplots(3, 1, figsize=(15, 18), sharex=False) # sharex=False for different x-axis scales
 
-            y_min_ax, y_max_ax = plt.gca().get_ylim() 
-            for k_idx, pattern_idx in enumerate(ca3_input_sequence):
-                start_time = k_idx * t_interval_T
-                end_time = start_time + duration_delta
-                plt.axvspan(start_time, end_time, color=f'C{pattern_idx}', alpha=0.05) 
-                plt.text(start_time + duration_delta/2, y_max_ax * 0.95, str(pattern_idx), 
-                         horizontalalignment='center', verticalalignment='top', fontsize=8, color='white',
-                         bbox=dict(facecolor=f'C{pattern_idx}', alpha=0.5, edgecolor='none', boxstyle='round,pad=0.2'))
+        # Plot 1: Continuous Time Soma Potential Heatmap
+        ax0 = axes[0]
+        im0 = ax0.imshow(all_vs_matrix, aspect='auto', cmap='hot',
+                         extent=[network_sol.t.min(), network_sol.t.max(), ca1_network.num_ca1_neurons - 0.5, -0.5],
+                         origin='upper', vmin=-80, vmax=40)
+        fig.colorbar(im0, ax=ax0, label='Soma Membrane Potential (mV)')
+        ax0.set_title('1. Continuous Time Soma Potential Heatmap')
+        ax0.set_xlabel('Time (msec)')
+        ax0.set_ylabel('Neuron Index')
 
-            plt.tight_layout()
-            plt.savefig("ca1_network_all_vs_heatmap.png")
+        # Input pattern overlay for continuous plot
+        y_min_ax0, y_max_ax0 = ax0.get_ylim()
+        for k_idx, pattern_idx in enumerate(ca3_input_sequence):
+            start_time = k_idx * t_interval_T
+            end_time = start_time + duration_delta
+            ax0.axvspan(start_time, end_time, color=f'C{pattern_idx}', alpha=0.05)
+            ax0.text(start_time + duration_delta/2, y_max_ax0 * 0.95, str(pattern_idx), 
+                     horizontalalignment='center', verticalalignment='top', fontsize=8, color='white',
+                     bbox=dict(facecolor=f'C{pattern_idx}', alpha=0.5, edgecolor='none', boxstyle='round,pad=0.2'))
 
-        plt.close()
 
+        # Plot 2: Averaged Soma Potential Heatmap
+        ax1 = axes[1]
+        interval_times = np.arange(averaged_vs_matrix.shape[1]) * t_interval_T + t_interval_T / 2
+        im1 = ax1.imshow(averaged_vs_matrix, aspect='auto', cmap='hot',
+                         extent=[interval_times.min() - t_interval_T/2, interval_times.max() + t_interval_T/2, 
+                                 ca1_network.num_ca1_neurons - 0.5, -0.5],
+                         origin='upper', vmin=-80, vmax=40)
+        fig.colorbar(im1, ax=ax1, label='Averaged Soma Membrane Potential (mV)')
+        ax1.set_title('2. Averaged Soma Potential Heatmap (Discrete Intervals)')
+        ax1.set_xlabel('Interval Time (msec)')
+        ax1.set_ylabel('Neuron Index')
+
+        # Input pattern overlay for averaged plot
+        y_min_ax1, y_max_ax1 = ax1.get_ylim()
+        for k_idx, pattern_idx in enumerate(ca3_input_sequence):
+            start_interval_time = k_idx * t_interval_T
+            end_interval_time = (k_idx + 1) * t_interval_T
+            ax1.axvspan(start_interval_time, end_interval_time, color=f'C{pattern_idx}', alpha=0.05)
+            ax1.text(start_interval_time + t_interval_T/2, y_max_ax1 * 0.95, str(pattern_idx),
+                     horizontalalignment='center', verticalalignment='top', fontsize=8, color='white',
+                     bbox=dict(facecolor=f'C{pattern_idx}', alpha=0.5, edgecolor='none', boxstyle='round,pad=0.2'))
+
+
+        # Plot 3: Spike Count Heatmap
+        ax2 = axes[2]
+        # vmax はスパイク数の最大値に基づいて調整、0の場合は1とする
+        max_spikes = np.max(spike_counts_matrix) if np.max(spike_counts_matrix) > 0 else 1 
+        im2 = ax2.imshow(spike_counts_matrix, aspect='auto', cmap='hot', # スパイク数は整数なのでviridisなどが見やすい
+                         extent=[interval_times.min() - t_interval_T/2, interval_times.max() + t_interval_T/2, 
+                                 ca1_network.num_ca1_neurons - 0.5, -0.5],
+                         origin='upper', vmin=0, vmax=max_spikes)
+        fig.colorbar(im2, ax=ax2, label='Number of Spikes')
+        ax2.set_title('3. Spike Count Heatmap (Discrete Intervals)')
+        ax2.set_xlabel('Interval Time (msec)')
+        ax2.set_ylabel('Neuron Index')
+
+        # Input pattern overlay for spike count plot
+        y_min_ax2, y_max_ax2 = ax2.get_ylim()
+        for k_idx, pattern_idx in enumerate(ca3_input_sequence):
+            start_interval_time = k_idx * t_interval_T
+            end_interval_time = (k_idx + 1) * t_interval_T
+            ax2.axvspan(start_interval_time, end_interval_time, color=f'C{pattern_idx}', alpha=0.05)
+            ax2.text(start_interval_time + t_interval_T/2, y_max_ax2 * 0.95, str(pattern_idx),
+                     horizontalalignment='center', verticalalignment='top', fontsize=8, color='white',
+                     bbox=dict(facecolor=f'C{pattern_idx}', alpha=0.5, edgecolor='none', boxstyle='round,pad=0.2'))
+
+        plt.tight_layout()
+        plt.savefig("ca1_network_all_heatmaps.png")
+
+        # figure 3
+        # analysis
         all_vs_matrix = ca1_network.get_all_soma_membrane_potentials(network_sol)
         averaged_vs_matrix = ca1_network.get_averaged_soma_potentials(network_sol, t_interval_T)
         spike_counts_matrix = ca1_network.get_spike_counts(network_sol, t_interval_T)
+        fig_pca = plt.figure(figsize=(10, 8))
+        ax_pca = fig_pca.add_subplot(111, projection='3d')
 
-        if all_vs_matrix is not None and averaged_vs_matrix is not None and spike_counts_matrix is not None:
-            print(f"Shape of continuous Vs matrix: {all_vs_matrix.shape}")
-            print(f"Shape of averaged Vs matrix: {averaged_vs_matrix.shape}")
-            print(f"Shape of spike counts matrix: {spike_counts_matrix.shape}")
+        from sklearn.decomposition import PCA # PCAのために追加
 
-            # --- 3つのヒートマップを並べてプロット ---
-            fig, axes = plt.subplots(3, 1, figsize=(15, 18), sharex=False) # sharex=False for different x-axis scales
-
-            # Plot 1: Continuous Time Soma Potential Heatmap
-            ax0 = axes[0]
-            im0 = ax0.imshow(all_vs_matrix, aspect='auto', cmap='hot',
-                             extent=[network_sol.t.min(), network_sol.t.max(), ca1_network.num_ca1_neurons - 0.5, -0.5],
-                             origin='upper', vmin=-80, vmax=40)
-            fig.colorbar(im0, ax=ax0, label='Soma Membrane Potential (mV)')
-            ax0.set_title('1. Continuous Time Soma Potential Heatmap')
-            ax0.set_xlabel('Time (msec)')
-            ax0.set_ylabel('Neuron Index')
-
-            # Input pattern overlay for continuous plot
-            y_min_ax0, y_max_ax0 = ax0.get_ylim()
-            for k_idx, pattern_idx in enumerate(ca3_input_sequence):
-                start_time = k_idx * t_interval_T
-                end_time = start_time + duration_delta
-                ax0.axvspan(start_time, end_time, color=f'C{pattern_idx}', alpha=0.05)
-                ax0.text(start_time + duration_delta/2, y_max_ax0 * 0.95, str(pattern_idx), 
-                         horizontalalignment='center', verticalalignment='top', fontsize=8, color='white',
-                         bbox=dict(facecolor=f'C{pattern_idx}', alpha=0.5, edgecolor='none', boxstyle='round,pad=0.2'))
-
-
-            # Plot 2: Averaged Soma Potential Heatmap
-            ax1 = axes[1]
-            interval_times = np.arange(averaged_vs_matrix.shape[1]) * t_interval_T + t_interval_T / 2
-            im1 = ax1.imshow(averaged_vs_matrix, aspect='auto', cmap='hot',
-                             extent=[interval_times.min() - t_interval_T/2, interval_times.max() + t_interval_T/2, 
-                                     ca1_network.num_ca1_neurons - 0.5, -0.5],
-                             origin='upper', vmin=-80, vmax=40)
-            fig.colorbar(im1, ax=ax1, label='Averaged Soma Membrane Potential (mV)')
-            ax1.set_title('2. Averaged Soma Potential Heatmap (Discrete Intervals)')
-            ax1.set_xlabel('Interval Time (msec)')
-            ax1.set_ylabel('Neuron Index')
-
-            # Input pattern overlay for averaged plot
-            y_min_ax1, y_max_ax1 = ax1.get_ylim()
-            for k_idx, pattern_idx in enumerate(ca3_input_sequence):
-                start_interval_time = k_idx * t_interval_T
-                end_interval_time = (k_idx + 1) * t_interval_T
-                ax1.axvspan(start_interval_time, end_interval_time, color=f'C{pattern_idx}', alpha=0.05)
-                ax1.text(start_interval_time + t_interval_T/2, y_max_ax1 * 0.95, str(pattern_idx),
-                         horizontalalignment='center', verticalalignment='top', fontsize=8, color='white',
-                         bbox=dict(facecolor=f'C{pattern_idx}', alpha=0.5, edgecolor='none', boxstyle='round,pad=0.2'))
-
-
-            # Plot 3: Spike Count Heatmap
-            ax2 = axes[2]
-            # vmax はスパイク数の最大値に基づいて調整、0の場合は1とする
-            max_spikes = np.max(spike_counts_matrix) if np.max(spike_counts_matrix) > 0 else 1 
-            im2 = ax2.imshow(spike_counts_matrix, aspect='auto', cmap='hot', # スパイク数は整数なのでviridisなどが見やすい
-                             extent=[interval_times.min() - t_interval_T/2, interval_times.max() + t_interval_T/2, 
-                                     ca1_network.num_ca1_neurons - 0.5, -0.5],
-                             origin='upper', vmin=0, vmax=max_spikes)
-            fig.colorbar(im2, ax=ax2, label='Number of Spikes')
-            ax2.set_title('3. Spike Count Heatmap (Discrete Intervals)')
-            ax2.set_xlabel('Interval Time (msec)')
-            ax2.set_ylabel('Neuron Index')
-
-            # Input pattern overlay for spike count plot
-            y_min_ax2, y_max_ax2 = ax2.get_ylim()
-            for k_idx, pattern_idx in enumerate(ca3_input_sequence):
-                start_interval_time = k_idx * t_interval_T
-                end_interval_time = (k_idx + 1) * t_interval_T
-                ax2.axvspan(start_interval_time, end_interval_time, color=f'C{pattern_idx}', alpha=0.05)
-                ax2.text(start_interval_time + t_interval_T/2, y_max_ax2 * 0.95, str(pattern_idx),
-                         horizontalalignment='center', verticalalignment='top', fontsize=8, color='white',
-                         bbox=dict(facecolor=f'C{pattern_idx}', alpha=0.5, edgecolor='none', boxstyle='round,pad=0.2'))
-
-            plt.tight_layout()
-            plt.savefig("ca1_network_all_heatmaps.png")
-
-            # analysis
-            all_vs_matrix = ca1_network.get_all_soma_membrane_potentials(network_sol)
-            averaged_vs_matrix = ca1_network.get_averaged_soma_potentials(network_sol, t_interval_T)
-            spike_counts_matrix = ca1_network.get_spike_counts(network_sol, t_interval_T)
-            fig_pca = plt.figure(figsize=(10, 8))
-            ax_pca = fig_pca.add_subplot(111, projection='3d')
-
-            from sklearn.decomposition import PCA # PCAのために追加
-
-            print("\nStarting PCA and 3D plotting (no color coding)...")
-            X_pca = averaged_vs_matrix.T 
-            print(f"Shape of data for PCA (intervals x neurons): {X_pca.shape}")
-            pca = PCA(n_components=3)
-            principal_components = pca.fit_transform(X_pca)
-            print(f"Shape of principal components: {principal_components.shape}")
-            print(f"Explained variance ratio: {pca.explained_variance_ratio_}")
-            print(f"Cumulative explained variance: {np.sum(pca.explained_variance_ratio_)}")
-            for i in range(sequence_length):
-                if i > 150:
-                    if ca3_input_sequence[i] == selected_numbers[0]:
-                        ax_pca.scatter(principal_components[i, 0], principal_components[i, 1], principal_components[i, 2], color="r", s=20, alpha=0.7)
-                    elif ca3_input_sequence[i] == selected_numbers[1]:
-                        ax_pca.scatter(principal_components[i, 0], principal_components[i, 1], principal_components[i, 2], color="b", s=20, alpha=0.7)
-                    elif ca3_input_sequence[i] == selected_numbers[2]:
-                        ax_pca.scatter(principal_components[i, 0], principal_components[i, 1], principal_components[i, 2], color="y", s=20, alpha=0.7)
-                    ax_pca.set_box_aspect((1, 1, 0.5)) 
-                    ax_pca.set_xlabel('Principal Component 1 (u1)')
-                    ax_pca.set_ylabel('Principal Component 2 (u2)')
-                    ax_pca.set_zlabel('Principal Component 3 (u3)')
-                    ax_pca.set_title(f'PCA of Averaged Soma Potentials (m={ca1_network.num_ca3_patterns_input})')
-                    ax_pca.grid(True)
-                    plt.tight_layout()
-                    plt.savefig("ca1_network_pca_3d_plot.png")
-                    print("PCA 3D plot saved successfully.")
+        print("\nStarting PCA and 3D plotting (no color coding)...")
+        X_pca = averaged_vs_matrix.T 
+        print(f"Shape of data for PCA (intervals x neurons): {X_pca.shape}")
+        pca = PCA(n_components=3)
+        principal_components = pca.fit_transform(X_pca)
+        print(f"Shape of principal components: {principal_components.shape}")
+        print(f"Explained variance ratio: {pca.explained_variance_ratio_}")
+        print(f"Cumulative explained variance: {np.sum(pca.explained_variance_ratio_)}")
+        for i in range(sequence_length):
+            if i > 150:
+                if ca3_input_sequence[i] == selected_numbers[0]:
+                    ax_pca.scatter(principal_components[i, 0], principal_components[i, 1], principal_components[i, 2], color="r", s=20, alpha=0.7)
+                elif ca3_input_sequence[i] == selected_numbers[1]:
+                    ax_pca.scatter(principal_components[i, 0], principal_components[i, 1], principal_components[i, 2], color="b", s=20, alpha=0.7)
+                elif ca3_input_sequence[i] == selected_numbers[2]:
+                    ax_pca.scatter(principal_components[i, 0], principal_components[i, 1], principal_components[i, 2], color="y", s=20, alpha=0.7)
+                ax_pca.set_box_aspect((1, 1, 0.5)) 
+                ax_pca.set_xlabel('Principal Component 1 (u1)')
+                ax_pca.set_ylabel('Principal Component 2 (u2)')
+                ax_pca.set_zlabel('Principal Component 3 (u3)')
+                ax_pca.set_title(f'PCA of Averaged Soma Potentials (m={ca1_network.num_ca3_patterns_input})')
+                ax_pca.grid(True)
+                plt.tight_layout()
+                plt.savefig("ca1_network_pca_3d_plot.png")
+                print("PCA 3D plot saved successfully.")
     else:
         print("Network simulation failed. Plotting skipped.")
