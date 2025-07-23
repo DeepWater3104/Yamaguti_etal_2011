@@ -17,7 +17,9 @@
 spack load fujitsu-mpi%gcc@12.2.0
 spack load /fhakchp # python@3.8.12%fj@4.7.0
 spack load /dgmiy5n # py-numpy@1.25.2%fj@4.10.0
-spack load /qqrwvm56 # py-scipy@1.8.1
+spack load /qqrwvm6 # py-scipy@1.8.1
+spack load /hcqvcsc # py-scikit-learn@1.3.2
+spack load /2h4rydm # py-matplotlib@3.3.4
 spack find --loaded # see the list of loaded modules
 
 export LD_LIBRARY_PATH=/lib64:$LD_LIBRARY_PATH
