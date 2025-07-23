@@ -1,4 +1,3 @@
-cat << EOF > job.sh
 #! /bin/bash
 
 #PJM --rsc-list "node=1"
@@ -13,6 +12,7 @@ cat << EOF > job.sh
 
 #module load Python3-CN
 
+. ../../spack/share/spack/setup-env.sh
 . /vol0004/apps/oss/spack/share/spack/setup-env.sh
 
 module load Python3-CN
@@ -26,26 +26,8 @@ spack load /hcqvcsc # py-scikit-learn@1.3.2
 spack load /2h4rydm # py-matplotlib@3.3.4
 spack find --loaded # see the list of loaded modules
 
-export LD_LIBRARY_PATH=/lib64:$LD_LIBRARY_PATH
+export LD_LIBRARY_PATH=/lib64:/opt/FJSVxtclanga/tcsds-1.2.41/lib64:/home/apps/oss/mscp/lib64
 
 cd ../model
 python3 CA1network.py
 
-EOF
-
-TMP="/vol0206/data/hp200139/u12103/Yamaguti_etal_2011/record/results_"
-DATE=`date '+%Y-%m-%d-'`
-TIME=`date '+%H-%M'`
-DIR=$TMP$DATE$TIME
-mkdir $DIR
-mkdir $DIR/data
-mkdir $DIR/figure
-JOB_OUTPUT_DIR=$DIR/job_output
-mkdir $JOB_OUTPUT_DIR
-cp -r ../model $DIR/model
-cp -r ./ $DIR/run
-cd $DIR/run
-
-pjsub job.sh
-
-cd -
