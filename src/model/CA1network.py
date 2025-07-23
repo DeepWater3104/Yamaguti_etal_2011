@@ -277,7 +277,7 @@ if __name__ == '__main__':
         plt.legend()
         plt.grid(True)
         plt.tight_layout()
-        plt.savefig("ca1_network_simulation.png")
+        plt.savefig("../figure/ca1_network_simulation.png")
         plt.close()
 
 
@@ -353,7 +353,7 @@ if __name__ == '__main__':
                      bbox=dict(facecolor=f'C{pattern_idx}', alpha=0.5, edgecolor='none', boxstyle='round,pad=0.2'))
 
         plt.tight_layout()
-        plt.savefig("ca1_network_all_heatmaps.png")
+        plt.savefig("../figure/ca1_network_all_heatmaps.png")
 
         # figure 3
         # analysis
@@ -388,7 +388,13 @@ if __name__ == '__main__':
                 ax_pca.set_title(f'PCA of Averaged Soma Potentials (m={ca1_network.num_ca3_patterns_input})')
                 ax_pca.grid(True)
                 plt.tight_layout()
-                plt.savefig("ca1_network_pca_3d_plot.png")
+                plt.savefig("../figure/ca1_network_pca_3d_plot.png")
                 print("PCA 3D plot saved successfully.")
+        # store data to npy files
+        
+        if all_vs_matrix is not None:
+            output_filename = "../data/all_vs_matrix.npy"
+            np.save(output_filename, all_vs_matrix)
+            print(f"All Vs matrix saved to {output_filename}")
     else:
         print("Network simulation failed. Plotting skipped.")
