@@ -1,5 +1,5 @@
 import numpy as np
-from scipy.integrate import solve_ivp
+from scipy.integrate import odeint
 from pinsky_rinzel_model import PinskyRinzelModel 
 
 class CA1Network:
@@ -106,12 +106,44 @@ class CA1Network:
 
         t_eval = np.arange(t_span[0], t_span[1], self.dt)
 
-        def ode_wrapper(t, all_state_vars):
+        #def ode_wrapper(t, all_state_vars):
+        #    current_ca3_pattern_idx = network_input_func(t)
+        #    return self.network_equations(t, all_state_vars, current_ca3_pattern_idx)
+        def ode_wrapper(all_state_vars, t, network_input_func):
             current_ca3_pattern_idx = network_input_func(t)
             return self.network_equations(t, all_state_vars, current_ca3_pattern_idx)
 
         try:
-            sol = solve_ivp(ode_wrapper, t_span, initial_y0, method='RK45', t_eval=t_eval, rtol=1e-5, atol=1e-8)
+            #sol = solve_ivp(ode_wrapper, t_span, initial_y0, method='RK45', t_eval=t_eval, rtol=1e-5, atol=1e-8)
+            #sol = odeint(ode_wrapper, initial_y0, t_eval, rtol=1e-5, atol=1e-8, full_output=False)
+            #
+            #class OdeintResult:
+            #    def __init__(self, t, y):
+            #        self.t = t
+            #        self.y = y.T
+            #sol_obj = OdeintResult(t_eval, sol)
+            #return sol_obj
+            # odeint の呼び出し
+            sol_raw = odeint(
+                ode_wrapper, 
+                initial_y0, 
+                t_eval, 
+                args=(network_input_func,),
+                rtol=1e-5, 
+                atol=1e-8,
+                full_output=False 
+            )
+            
+            # odeint の結果を solve_ivp の結果形式に似せてラップ
+            # odeint の sol_raw は (n_steps, n_vars) なので、
+            # solve_ivp の y 形式 (n_vars, n_steps) にするために転置する
+            class OdeResultMimic:
+                def __init__(self, t, y_transposed):
+                    self.t = t
+                    self.y = y_transposed 
+            
+            sol_obj = OdeResultMimic(t_eval, sol_raw.T) # sol_raw.T で転置
+            return sol_obj
         except ValueError as e:
             print(f"Error during network simulation: {e}")
             print("This might be due to numerical instability. Consider adjusting initial conditions, dt, or solver tolerances.")
