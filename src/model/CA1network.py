@@ -213,7 +213,7 @@ if __name__ == '__main__':
     sim_dt = 0.05              # シミュレーションタイムステップ 
     neuron_type = "bursting"
     synapse_type = "BOTH"
-    sequence_length = 10       # T間隔の数 (100ms * 10 = 1000ms = 1秒)
+    sequence_length = 1000     # T間隔の数
     t_span_network = (0, t_interval_T * sequence_length) # 0ms から 1000ms
     rng = np.random.default_rng(42)
     selected_numbers = rng.choice(range(num_ca3_patterns), size=num_ca3_patterns_input, replace=False)
@@ -277,7 +277,7 @@ if __name__ == '__main__':
         plt.legend()
         plt.grid(True)
         plt.tight_layout()
-        plt.savefig("../figure/ca1_network_simulation.png")
+        plt.savefig("../figure/membranepotential.png")
         plt.close()
 
 
@@ -353,7 +353,7 @@ if __name__ == '__main__':
                      bbox=dict(facecolor=f'C{pattern_idx}', alpha=0.5, edgecolor='none', boxstyle='round,pad=0.2'))
 
         plt.tight_layout()
-        plt.savefig("../figure/ca1_network_all_heatmaps.png")
+        plt.savefig("../figure/statevars.png")
 
         # figure 3
         # analysis
@@ -381,17 +381,17 @@ if __name__ == '__main__':
                     ax_pca.scatter(principal_components[i, 0], principal_components[i, 1], principal_components[i, 2], color="b", s=20, alpha=0.7)
                 elif ca3_input_sequence[i] == selected_numbers[2]:
                     ax_pca.scatter(principal_components[i, 0], principal_components[i, 1], principal_components[i, 2], color="y", s=20, alpha=0.7)
-                ax_pca.set_box_aspect((1, 1, 0.5)) 
-                ax_pca.set_xlabel('Principal Component 1 (u1)')
-                ax_pca.set_ylabel('Principal Component 2 (u2)')
-                ax_pca.set_zlabel('Principal Component 3 (u3)')
-                ax_pca.set_title(f'PCA of Averaged Soma Potentials (m={ca1_network.num_ca3_patterns_input})')
-                ax_pca.grid(True)
-                plt.tight_layout()
-                plt.savefig("../figure/ca1_network_pca_3d_plot.png")
-                print("PCA 3D plot saved successfully.")
-        # store data to npy files
+        ax_pca.set_box_aspect((1, 1, 0.5)) 
+        ax_pca.set_xlabel('Principal Component 1 (u1)')
+        ax_pca.set_ylabel('Principal Component 2 (u2)')
+        ax_pca.set_zlabel('Principal Component 3 (u3)')
+        ax_pca.set_title(f'PCA of Averaged Soma Potentials (m={ca1_network.num_ca3_patterns_input})')
+        ax_pca.grid(True)
+        plt.tight_layout()
+        plt.savefig("../figure/PCA_depth1.png")
+        print("PCA 3D plot saved successfully.")
         
+        # store data to npy files
         if all_vs_matrix is not None:
             output_filename = "../data/all_vs_matrix.npy"
             np.save(output_filename, all_vs_matrix)
