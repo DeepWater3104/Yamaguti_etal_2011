@@ -29,7 +29,27 @@ cat << EOF > job.sh
 #export LD_LIBRARY_PATH=/lib64:$LD_LIBRARY_PATH
 
 cd ../model
-python3 CA1network.py
+#python3 CA1network.py 
+#W_TILDES="0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0"
+W_TILDES="0.005 0.01 0.015 0.02 0.025 0.03 0.035 0.04 0.045 0.05 0.055 0.06 0.065 0.07 0.075 0.08 0.085 0.09 0.095 0.1 "
+
+running_jobs_count() {
+  ps r | wc -l
+}
+MAX_PARALLEL_JOBS=7
+
+for WT in \$W_TILDES; do
+    echo "Running simulation with w_tilde = \${WT}"
+    
+    python3 CA1network.py --w_tilde \${WT} &
+    
+    while (( \$(running_jobs_count) >= MAX_PARALLEL_JOBS )); do
+      sleep 1
+    done
+    
+done
+
+echo "全てのシミュレーションが完了しました。"
 
 EOF
 

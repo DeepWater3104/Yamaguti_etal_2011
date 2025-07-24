@@ -4,7 +4,7 @@ from pinsky_rinzel_model import PinskyRinzelModel
 
 class CA1Network:
     def __init__(self, num_ca1_neurons=100, num_ca3_patterns=100, num_ca3_patterns_input=3,
-                 neuron_type="bursting", synapse_type="BOTH", dt=0.05, seed=None):
+                 neuron_type="bursting", synapse_type="BOTH", w_tilde=0.01, dt=0.05, seed=None):
         self.num_ca1_neurons        = num_ca1_neurons
         self.num_ca3_patterns       = num_ca3_patterns       # M (論文の Section 3.1)
         self.num_ca3_patterns_input = num_ca3_patterns_input # m (論文の Section 3.1)
@@ -18,7 +18,7 @@ class CA1Network:
         self.num_ca3_neurons = num_ca1_neurons # 仮にCA3ニューロン数とCA1ニューロン数を同じにする
         self.p_fi = 0.1 # 論文 Section 3.1, probability of taking value 1 is p_fi=0.1
         self.ca3_elementary_patterns = self._generate_ca3_patterns()
-        self.tilde_w = 0.01 # scaling factor for synaptic weight
+        self.tilde_w = w_tilde # scaling factor for synaptic weight
         self.ca3_ca1_weights = self._initialize_ca3_ca1_weights()
         self.initial_network_state = self._get_initial_network_state()
 
@@ -236,6 +236,29 @@ class CA1Network:
 
 
 if __name__ == '__main__':
+    import argparse
+    parser = argparse.ArgumentParser(description='Parameters setting for the simulation')
+    parser.add_argument(
+        '--w_tilde',
+        type=float,
+        default=0.01, # デフォルト値
+        help='Scaling factor of synaptic weight'
+    )
+    args = parser.parse_args()
+    w_tilde = args.w_tilde
+
+    print(f"Scaling fact or of synaptic weight : {w_tilde}")
+    filename_parts_list = []
+    filename_parts_list.append(f"WT{w_tilde:.3f}".replace('.', 'p')) # 小数点を'p'に変換してファイル名に含める
+    filename = ""
+    if filename_parts_list:
+        filename_parts = f"{'_'.join(filename_parts_list)}"
+        print(filename_parts)
+    else:
+        filename_parts = f""
+        print(filename_parts)
+
+
     # Parameters
     num_ca1 = 100              # CA1ニューロン数 (論文 Figure 9で100まで)
     num_ca3_patterns = 20      # M=100 (論文では具体的な値が指定されていない)
@@ -249,11 +272,11 @@ if __name__ == '__main__':
     t_span_network = (0, t_interval_T * sequence_length) # 0ms から 1000ms
     rng = np.random.default_rng(42)
     selected_numbers = rng.choice(range(num_ca3_patterns), size=num_ca3_patterns_input, replace=False)
-    print(selected_numbers)
+    #print(selected_numbers)
     ca3_input_sequence = rng.integers(0, num_ca3_patterns_input, size=sequence_length).tolist()
     for input_idx in range(sequence_length):
         ca3_input_sequence[input_idx] = selected_numbers[ca3_input_sequence[input_idx]]
-    print(f"Generated CA3 input sequence: {ca3_input_sequence}")
+    #print(f"Generated CA3 input sequence: {ca3_input_sequence}")
 
     print(f"Initializing CA1 Network with {num_ca1} neurons...")
     ca1_network = CA1Network(
@@ -262,6 +285,7 @@ if __name__ == '__main__':
         num_ca3_patterns_input=num_ca3_patterns_input,
         neuron_type=neuron_type,
         synapse_type=synapse_type,
+        w_tilde = w_tilde,
         dt=sim_dt,
         seed=42
     )
@@ -309,7 +333,8 @@ if __name__ == '__main__':
         plt.legend()
         plt.grid(True)
         plt.tight_layout()
-        plt.savefig("../figure/membranepotential.png")
+        #plt.savefig("../figure/membranepotential.png")
+        plt.savefig("../figure/membranepotential_" + filename_parts + ".png")
         plt.close()
 
 
@@ -385,7 +410,8 @@ if __name__ == '__main__':
                      bbox=dict(facecolor=f'C{pattern_idx}', alpha=0.5, edgecolor='none', boxstyle='round,pad=0.2'))
 
         plt.tight_layout()
-        plt.savefig("../figure/statevars.png")
+        #plt.savefig("../figure/statevars.png")
+        plt.savefig("../figure/statevars_" + filename_parts + ".png")
 
         # figure 3
         # analysis
@@ -420,12 +446,13 @@ if __name__ == '__main__':
         ax_pca.set_title(f'PCA of Averaged Soma Potentials (m={ca1_network.num_ca3_patterns_input})')
         ax_pca.grid(True)
         plt.tight_layout()
-        plt.savefig("../figure/PCA_depth1.png")
+        #plt.savefig("../figure/PCA_depth1.png")
+        plt.savefig("../figure/PCA_depth1_" + filename_parts + ".png")
         print("PCA 3D plot saved successfully.")
         
         # store data to npy files
         if all_vs_matrix is not None:
-            output_filename = "../data/all_vs_matrix.npy"
+            output_filename = "../data/all_vs_matrix" + filename_parts + ".npy"
             np.save(output_filename, all_vs_matrix)
             print(f"All Vs matrix saved to {output_filename}")
     else:
