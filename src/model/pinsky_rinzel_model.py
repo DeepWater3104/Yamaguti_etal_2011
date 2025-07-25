@@ -197,41 +197,20 @@ class PinskyRinzelModel:
     def runge_kutta4(self, t_span, y0, t_eval):
         state_vars = y0 
 
+        y_history = np.zeros((np.size(y0)), np.size(t_eval))
+
         for t in t_eval[1:]:
+            k1 = np.array(func(t, current_y, *args))
+            k2 = np.array(func(t + dt/2, current_y + dt/2 * k1, *args))
+            k3 = np.array(func(t + dt/2, current_y + dt/2 * k2, *args))
+            k4 = np.array(func(t + dt, current_y + dt * k3, *args))
 
-    def simulate_runge_kutta4(self, t_span, y0, t_eval):
-        # set intitial value
-        if y0 is None:
-            y0_list = [
-                self.initial_conditions['Vs'],
-                self.initial_conditions['Vd'],
-                self.initial_conditions['Ca'],
-                self.initial_conditions['m'],
-                self.initial_conditions['h'],
-                self.initial_conditions['n'],
-                self.initial_conditions['s'],
-                self.initial_conditions['c'],
-                self.initial_conditions['q'],
-                self.initial_conditions['Ga'],
-                self.initial_conditions['Gn']
-            ]
-            y0 = np.array(y0_list)
+            current_y = current_y + (dt / 6) * (k1 + 2*k2 + 2*k3 + k4)
+            y_history[:, i+1] = current_y
 
-        # translate spike input and current input into ODE
-        def ode_func(t, state_vars):
-            spike_input   = spike_input_function(t) if spike_input_function else 0.0
-            current_input = current_input_function(t) if current_input_function else 0.0
-            return self.equations(t, state_vars, spike_input, current_input)
+        return 
 
-        t_eval = np.arange(t_span[0], t_span[1], self.dt)
-
-        sol = solve_ivp(ode_func, t_span, y0, method='RK45', t_eval=t_eval, rtol=1e-5, atol=1e-8) # for scipy.integrate.solve_ivp
-        # rtol, atolはデフォルト値か、論文のC++実装の精度に合わせるため適宜調整
-
-        return sol
-
-
-
+    
     def simulate(self, t_span, y0=None, spike_input_function=None, current_input_function=None):
         # set intitial value
         if y0 is None:
