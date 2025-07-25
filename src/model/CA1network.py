@@ -303,7 +303,7 @@ if __name__ == '__main__':
         ca3_input_duration_delta=duration_delta,
     )
     end = time.time()
-    print("Network simulation completed:end - start")
+    print("Network simulation completed:{end - start}")
 
     if network_sol is not None:
         from matplotlib import pyplot as plt
@@ -555,7 +555,7 @@ if __name__ == '__main__':
         # store data to npy files
         if all_vs_matrix is not None:
             output_filename = "../data/all_vs_matrix" + filename_parts + ".npy"
-            np.savez_compressed(output_filename_npz,
+            np.savez_compressed(output_filename,
                                  time=network_sol.t,
                                  soma_potentials=all_vs_matrix)
             print(f"All Vs matrix saved to {output_filename}")

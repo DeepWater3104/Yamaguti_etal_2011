@@ -36,12 +36,12 @@ W_TILDES="0.005 0.01 0.015 0.02 0.025 0.03 0.035 0.04 0.045 0.05 0.055 0.06 0.06
 running_jobs_count() {
   ps r | wc -l
 }
-MAX_PARALLEL_JOBS=7
+MAX_PARALLEL_JOBS=5
 
 for WT in \$W_TILDES; do
     echo "Running simulation with w_tilde = \${WT}"
     
-    python3 CA1network.py --w_tilde \${WT} &
+    python3 CA1network.py --w_tilde \${WT}
     
     while (( \$(running_jobs_count) >= MAX_PARALLEL_JOBS )); do
       sleep 1
