@@ -1,5 +1,5 @@
 import numpy as np
-#from scipy.integrate import solve_ivp
+from scipy.integrate import solve_ivp
 
 class PinskyRinzelModel:
     def __init__(self, neuron_type="bursting", synapse_type="NMDA", dt=0.05):
@@ -194,21 +194,35 @@ class PinskyRinzelModel:
 
         return np.array([dVs_dt, dVd_dt, dCa_dt, dm_dt, dh_dt, dn_dt, ds_dt, dc_dt, dq_dt, dGa_dt_val, dGn_dt_val])
 
-    def runge_kutta4(self, t_span, y0, t_eval):
+    def runge_kutta4(self, func, t_span, y0, t_eval, spike_input_function, current_input_function):
         state_vars = y0 
 
-        y_history = np.zeros((np.size(y0)), np.size(t_eval))
+        print(np.size(y0))
+        print(np.size(t_eval))
+        y_history = np.zeros((np.size(y0), np.size(t_eval)))
+        y_history[:, 0] = y0
+        current_y       = y0
 
-        for t in t_eval[1:]:
-            k1 = np.array(func(t, current_y, *args))
-            k2 = np.array(func(t + dt/2, current_y + dt/2 * k1, *args))
-            k3 = np.array(func(t + dt/2, current_y + dt/2 * k2, *args))
-            k4 = np.array(func(t + dt, current_y + dt * k3, *args))
+        for t_idx in range(np.size(t_eval)-1):
+            current_y = y_history[:, t_idx]
+            dt = t_eval[t_idx+1] - t_eval[t_idx]
+            k1 = np.array(func(t_eval[t_idx],        current_y            ,  spike_input_function, current_input_function))
+            k2 = np.array(func(t_eval[t_idx] + dt/2, current_y + dt/2 * k1,  spike_input_function, current_input_function))
+            k3 = np.array(func(t_eval[t_idx] + dt/2, current_y + dt/2 * k2,  spike_input_function, current_input_function))
+            k4 = np.array(func(t_eval[t_idx] + dt,   current_y + dt   * k3,  spike_input_function, current_input_function))
 
             current_y = current_y + (dt / 6) * (k1 + 2*k2 + 2*k3 + k4)
-            y_history[:, i+1] = current_y
+            y_history[:, t_idx+1] = current_y
 
-        return 
+        print(y_history)
+
+        class OdeResultMimic:
+            def __init__(self, t, y):
+                self.t = t
+                self.y = y_history
+
+        sol = OdeResultMimic(t_eval, y_history)
+        return sol
 
     
     def simulate(self, t_span, y0=None, spike_input_function=None, current_input_function=None):
@@ -230,16 +244,15 @@ class PinskyRinzelModel:
             y0 = np.array(y0_list)
 
         # translate spike input and current input into ODE
-        def ode_func(t, state_vars):
+        def ode_func(t, state_vars, spike_input_function, current_input_function):
             spike_input   = spike_input_function(t) if spike_input_function else 0.0
             current_input = current_input_function(t) if current_input_function else 0.0
             return self.equations(t, state_vars, spike_input, current_input)
 
-        # solve_ivpは指定されたt_evalで結果を返すため、dtを使って生成
         t_eval = np.arange(t_span[0], t_span[1], self.dt)
 
-        sol = solve_ivp(ode_func, t_span, y0, method='RK45', t_eval=t_eval, rtol=1e-5, atol=1e-8) # for scipy.integrate.solve_ivp
-        # rtol, atolはデフォルト値か、論文のC++実装の精度に合わせるため適宜調整
+        #sol = solve_ivp(ode_func, t_span, y0, args=(spike_input_function, current_input_function), method='RK45', t_eval=t_eval, rtol=1e-5, atol=1e-8) # for scipy.integrate.solve_ivp
+        sol = self.runge_kutta4(ode_func, t_span, y0, t_eval, spike_input_function, current_input_function)
 
         return sol
 
