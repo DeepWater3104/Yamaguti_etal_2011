@@ -1,5 +1,5 @@
 import numpy as np
-from scipy.integrate import solve_ivp
+#from scipy.integrate import solve_ivp
 
 class PinskyRinzelModel:
     def __init__(self, neuron_type="bursting", synapse_type="NMDA", dt=0.05):
@@ -192,9 +192,15 @@ class PinskyRinzelModel:
         dGa_dt_val = self.dGa_dt(Ga, sa)
         dGn_dt_val = self.dGn_dt(Gn, sn)
 
-        return [dVs_dt, dVd_dt, dCa_dt, dm_dt, dh_dt, dn_dt, ds_dt, dc_dt, dq_dt, dGa_dt_val, dGn_dt_val]
+        return np.array([dVs_dt, dVd_dt, dCa_dt, dm_dt, dh_dt, dn_dt, ds_dt, dc_dt, dq_dt, dGa_dt_val, dGn_dt_val])
 
-    def simulate(self, t_span, y0=None, spike_input_function=None, current_input_function=None):
+    def runge_kutta4(self, t_span, y0, t_eval):
+        state_vars = y0 
+
+        for t in t_eval[1:]:
+
+    def simulate_runge_kutta4(self, t_span, y0, t_eval):
+        # set intitial value
         if y0 is None:
             y0_list = [
                 self.initial_conditions['Vs'],
@@ -211,8 +217,40 @@ class PinskyRinzelModel:
             ]
             y0 = np.array(y0_list)
 
+        # translate spike input and current input into ODE
+        def ode_func(t, state_vars):
+            spike_input   = spike_input_function(t) if spike_input_function else 0.0
+            current_input = current_input_function(t) if current_input_function else 0.0
+            return self.equations(t, state_vars, spike_input, current_input)
 
-        # 外部入力関数を equations に渡すためのラッパー関数
+        t_eval = np.arange(t_span[0], t_span[1], self.dt)
+
+        sol = solve_ivp(ode_func, t_span, y0, method='RK45', t_eval=t_eval, rtol=1e-5, atol=1e-8) # for scipy.integrate.solve_ivp
+        # rtol, atolはデフォルト値か、論文のC++実装の精度に合わせるため適宜調整
+
+        return sol
+
+
+
+    def simulate(self, t_span, y0=None, spike_input_function=None, current_input_function=None):
+        # set intitial value
+        if y0 is None:
+            y0_list = [
+                self.initial_conditions['Vs'],
+                self.initial_conditions['Vd'],
+                self.initial_conditions['Ca'],
+                self.initial_conditions['m'],
+                self.initial_conditions['h'],
+                self.initial_conditions['n'],
+                self.initial_conditions['s'],
+                self.initial_conditions['c'],
+                self.initial_conditions['q'],
+                self.initial_conditions['Ga'],
+                self.initial_conditions['Gn']
+            ]
+            y0 = np.array(y0_list)
+
+        # translate spike input and current input into ODE
         def ode_func(t, state_vars):
             spike_input   = spike_input_function(t) if spike_input_function else 0.0
             current_input = current_input_function(t) if current_input_function else 0.0
@@ -221,7 +259,7 @@ class PinskyRinzelModel:
         # solve_ivpは指定されたt_evalで結果を返すため、dtを使って生成
         t_eval = np.arange(t_span[0], t_span[1], self.dt)
 
-        sol = solve_ivp(ode_func, t_span, y0, method='RK45', t_eval=t_eval, rtol=1e-5, atol=1e-8)
+        sol = solve_ivp(ode_func, t_span, y0, method='RK45', t_eval=t_eval, rtol=1e-5, atol=1e-8) # for scipy.integrate.solve_ivp
         # rtol, atolはデフォルト値か、論文のC++実装の精度に合わせるため適宜調整
 
         return sol
