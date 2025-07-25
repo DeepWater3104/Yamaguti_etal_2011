@@ -116,14 +116,15 @@ class CA1Network:
        
         try:
             sol = solve_ivp(ode_wrapper, t_span, initial_y0, method='RK45', t_eval=t_eval, rtol=1e-5, atol=1e-8)
+            return sol
             #sol = odeint(ode_wrapper, initial_y0, t_eval, rtol=1e-5, atol=1e-8, full_output=False)
             
-            class OdeintResult:
-                def __init__(self, t, y):
-                    self.t = t
-                    self.y = y.T
-            sol_obj = OdeintResult(t_eval, sol)
-            return sol_obj
+            #class OdeintResult:
+            #    def __init__(self, t, y):
+            #        self.t = t
+            #        self.y = y.T
+            #sol_obj = OdeintResult(t_eval, sol)
+            #return sol_obj
             # odeint の呼び出し
             #sol_raw = odeint(
             #    ode_wrapper, 
@@ -418,16 +419,11 @@ if __name__ == '__main__':
         plt.savefig("../figure/statevars_" + filename_parts + ".png")
 
         # figure 3
-        # analysis
-        all_vs_matrix = ca1_network.get_all_soma_membrane_potentials(network_sol)
-        averaged_vs_matrix = ca1_network.get_averaged_soma_potentials(network_sol, t_interval_T)
-        spike_counts_matrix = ca1_network.get_spike_counts(network_sol, t_interval_T)
+        from sklearn.decomposition import PCA
+        print("\nStarting PCA and 3D plotting (no color coding)...")
         fig_pca = plt.figure(figsize=(10, 8))
         ax_pca = fig_pca.add_subplot(111, projection='3d')
 
-        from sklearn.decomposition import PCA # PCAのために追加
-
-        print("\nStarting PCA and 3D plotting (no color coding)...")
         X_pca = averaged_vs_matrix.T 
         print(f"Shape of data for PCA (intervals x neurons): {X_pca.shape}")
         pca = PCA(n_components=3)
@@ -451,7 +447,109 @@ if __name__ == '__main__':
         ax_pca.grid(True)
         plt.tight_layout()
         #plt.savefig("../figure/PCA_depth1.png")
-        plt.savefig("../figure/PCA_depth1_" + filename_parts + ".png")
+        plt.savefig("../figure/PCA_vs_depth1_" + filename_parts + ".png")
+        print("PCA 3D plot saved successfully.")
+
+        
+        # figure 4
+        print("\nStarting PCA and 3D plotting (no color coding)...")
+        my_colors = ['blue', 'green', 'red', 'cyan', 'magenta', 'yellow', 'black', 'purple', 'orange', 'brown']
+        fig_pca = plt.figure(figsize=(10, 8))
+        ax_pca = fig_pca.add_subplot(111, projection='3d')
+
+        X_pca = averaged_vs_matrix.T 
+        print(f"Shape of data for PCA (intervals x neurons): {X_pca.shape}")
+        pca = PCA(n_components=3)
+        principal_components = pca.fit_transform(X_pca)
+        print(f"Shape of principal components: {principal_components.shape}")
+        print(f"Explained variance ratio: {pca.explained_variance_ratio_}")
+        print(f"Cumulative explained variance: {np.sum(pca.explained_variance_ratio_)}")
+        for i in range(sequence_length):
+            if i > 150:
+                for last_input_idx1 in range(3):
+                    for last_input_idx2 in range(3):
+                        if ca3_input_sequence[i] == selected_numbers[last_input_idx1]:
+                            if ca3_input_sequence[i-1] == selected_numbers[last_input_idx2]:
+                                ax_pca.scatter(principal_components[i, 0], 
+                                               principal_components[i, 1], 
+                                               principal_components[i, 2], 
+                                               color=my_colors[last_input_idx1 * 3 + last_input_idx2],
+                                               s=20, alpha=0.7)
+        ax_pca.set_box_aspect((1, 1, 0.5)) 
+        ax_pca.set_xlabel('Principal Component 1 (u1)')
+        ax_pca.set_ylabel('Principal Component 2 (u2)')
+        ax_pca.set_zlabel('Principal Component 3 (u3)')
+        ax_pca.set_title(f'PCA of Averaged Soma Potentials (m={ca1_network.num_ca3_patterns_input})')
+        ax_pca.grid(True)
+        plt.tight_layout()
+        plt.savefig("../figure/PCA_vs_depth2_" + filename_parts + ".png")
+        print("PCA 3D plot saved successfully.")
+
+        # figure 5
+        from sklearn.decomposition import PCA
+        print("\nStarting PCA and 3D plotting (no color coding)...")
+        fig_pca = plt.figure(figsize=(10, 8))
+        ax_pca = fig_pca.add_subplot(111, projection='3d')
+
+        X_pca = spike_counts_matrix.T 
+        print(f"Shape of data for PCA (intervals x neurons): {X_pca.shape}")
+        pca = PCA(n_components=3)
+        principal_components = pca.fit_transform(X_pca)
+        print(f"Shape of principal components: {principal_components.shape}")
+        print(f"Explained variance ratio: {pca.explained_variance_ratio_}")
+        print(f"Cumulative explained variance: {np.sum(pca.explained_variance_ratio_)}")
+        for i in range(sequence_length):
+            if i > 150:
+                if ca3_input_sequence[i] == selected_numbers[0]:
+                    ax_pca.scatter(principal_components[i, 0], principal_components[i, 1], principal_components[i, 2], color="r", s=20, alpha=0.7)
+                elif ca3_input_sequence[i] == selected_numbers[1]:
+                    ax_pca.scatter(principal_components[i, 0], principal_components[i, 1], principal_components[i, 2], color="b", s=20, alpha=0.7)
+                elif ca3_input_sequence[i] == selected_numbers[2]:
+                    ax_pca.scatter(principal_components[i, 0], principal_components[i, 1], principal_components[i, 2], color="y", s=20, alpha=0.7)
+        ax_pca.set_box_aspect((1, 1, 0.5)) 
+        ax_pca.set_xlabel('Principal Component 1 (u1)')
+        ax_pca.set_ylabel('Principal Component 2 (u2)')
+        ax_pca.set_zlabel('Principal Component 3 (u3)')
+        ax_pca.set_title(f'PCA of Averaged Soma Potentials (m={ca1_network.num_ca3_patterns_input})')
+        ax_pca.grid(True)
+        plt.tight_layout()
+        #plt.savefig("../figure/PCA_depth1.png")
+        plt.savefig("../figure/PCA_spikes_depth1_" + filename_parts + ".png")
+        print("PCA 3D plot saved successfully.")
+
+        
+        # figure 6
+        print("\nStarting PCA and 3D plotting (no color coding)...")
+        my_colors = ['blue', 'green', 'red', 'cyan', 'magenta', 'yellow', 'black', 'purple', 'orange', 'brown']
+        fig_pca = plt.figure(figsize=(10, 8))
+        ax_pca = fig_pca.add_subplot(111, projection='3d')
+
+        X_pca = spike_counts_matrix.T 
+        print(f"Shape of data for PCA (intervals x neurons): {X_pca.shape}")
+        pca = PCA(n_components=3)
+        principal_components = pca.fit_transform(X_pca)
+        print(f"Shape of principal components: {principal_components.shape}")
+        print(f"Explained variance ratio: {pca.explained_variance_ratio_}")
+        print(f"Cumulative explained variance: {np.sum(pca.explained_variance_ratio_)}")
+        for i in range(sequence_length):
+            if i > 150:
+                for last_input_idx1 in range(3):
+                    for last_input_idx2 in range(3):
+                        if ca3_input_sequence[i] == selected_numbers[last_input_idx1]:
+                            if ca3_input_sequence[i-1] == selected_numbers[last_input_idx2]:
+                                ax_pca.scatter(principal_components[i, 0], 
+                                               principal_components[i, 1], 
+                                               principal_components[i, 2], 
+                                               color=my_colors[last_input_idx1 * 3 + last_input_idx2],
+                                               s=20, alpha=0.7)
+        ax_pca.set_box_aspect((1, 1, 0.5)) 
+        ax_pca.set_xlabel('Principal Component 1 (u1)')
+        ax_pca.set_ylabel('Principal Component 2 (u2)')
+        ax_pca.set_zlabel('Principal Component 3 (u3)')
+        ax_pca.set_title(f'PCA of Averaged Soma Potentials (m={ca1_network.num_ca3_patterns_input})')
+        ax_pca.grid(True)
+        plt.tight_layout()
+        plt.savefig("../figure/PCA_spikes_depth2_" + filename_parts + ".png")
         print("PCA 3D plot saved successfully.")
         
         # store data to npy files
