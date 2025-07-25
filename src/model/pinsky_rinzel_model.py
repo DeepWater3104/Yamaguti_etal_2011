@@ -195,10 +195,6 @@ class PinskyRinzelModel:
         return np.array([dVs_dt, dVd_dt, dCa_dt, dm_dt, dh_dt, dn_dt, ds_dt, dc_dt, dq_dt, dGa_dt_val, dGn_dt_val])
 
     def runge_kutta4(self, func, t_span, y0, t_eval, spike_input_function, current_input_function):
-        state_vars = y0 
-
-        print(np.size(y0))
-        print(np.size(t_eval))
         y_history = np.zeros((np.size(y0), np.size(t_eval)))
         y_history[:, 0] = y0
         current_y       = y0
@@ -213,8 +209,6 @@ class PinskyRinzelModel:
 
             current_y = current_y + (dt / 6) * (k1 + 2*k2 + 2*k3 + k4)
             y_history[:, t_idx+1] = current_y
-
-        print(y_history)
 
         class OdeResultMimic:
             def __init__(self, t, y):
