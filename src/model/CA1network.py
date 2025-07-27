@@ -11,10 +11,7 @@ class CA1Network:
         self.dt = dt
         self.rng = np.random.default_rng(seed)
 
-        self.ca1_neurons = []
-        for _ in range(self.num_ca1_neurons):
-            neuron = PinskyRinzelModel(neuron_type=neuron_type, synapse_type=synapse_type, dt=dt)
-            self.ca1_neurons.append(neuron)
+        ca1_neurons = PinskyRinzelModel(neuron_type=neuron_type, synapse_type=synapse_type, dt=dt)
         self.num_ca3_neurons = num_ca1_neurons # 仮にCA3ニューロン数とCA1ニューロン数を同じにする
         self.p_fi = 0.1 # 論文 Section 3.1, probability of taking value 1 is p_fi=0.1
         self.ca3_elementary_patterns = self._generate_ca3_patterns()
@@ -331,8 +328,8 @@ if __name__ == '__main__':
     t_interval_T = 100.0       # T=100ms (論文 Figure 4) 
     duration_delta = 5.0       # delta=5ms (論文 Section 3.1) 
     sim_dt = 0.05              # シミュレーションタイムステップ 
-    neuron_type = "bursting"
-    synapse_type = "BOTH"
+    neuron_type  = ["bursting" for _ in range(num_neurons)]
+    synapse_type = ["BOTH"     for _ in range(num_neurons)]
     sequence_length = 1000     # T間隔の数
     t_span_network = (0, t_interval_T * sequence_length) # 0ms から 1000ms
     rng = np.random.default_rng(42)
@@ -354,6 +351,7 @@ if __name__ == '__main__':
         dt=sim_dt,
         seed=42
     )
+
     print("CA1 Network Initialized.")
 
     print(f"Starting network simulation for {t_span_network[1]} ms...")
