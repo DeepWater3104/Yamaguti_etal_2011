@@ -190,7 +190,6 @@ class PinskyRinzelModel:
 
         sa = input_signal_val
         sn = input_signal_val
-
         #iL_soma = self.I_L(Vs, self.params['gL'], self.params['E_L'])
         iL_soma = self.I_L(state_vars[:, self.state_vars_key_to_idx['Vs']], self.params['gL'], self.params['E_L'])
         #iNa = self.I_Na(Vs, m, h, self.params['gNa'], self.params['E_Na'])
@@ -239,8 +238,6 @@ class PinskyRinzelModel:
         y_history = np.zeros((np.size(t_eval), self.num_neurons, len(self.state_vars_key_to_idx)))
         y_history[0, :, :] = y0
         current_y       = y0
-        #print(np.shape(y0))
-        #print(np.shape(current_y))
 
         for t_idx in range(np.size(t_eval)-1):
             dt = t_eval[t_idx+1] - t_eval[t_idx]
@@ -248,12 +245,6 @@ class PinskyRinzelModel:
             k2 = np.array(func(t_eval[t_idx] + dt/2, current_y + dt/2 * k1,  spike_input_function, current_input_function))
             k3 = np.array(func(t_eval[t_idx] + dt/2, current_y + dt/2 * k2,  spike_input_function, current_input_function))
             k4 = np.array(func(t_eval[t_idx] + dt,   current_y + dt   * k3,  spike_input_function, current_input_function))
-            #print(np.shape(k1))
-            #print(np.shape(current_y + dt/2 * k1))
-            #print(np.shape(k2))
-            #print(np.shape(k3))
-            #print(np.shape(k4))
-
             current_y = current_y + (dt / 6) * (k1 + 2*k2 + 2*k3 + k4)
             y_history[t_idx+1, :, :] = current_y
 
@@ -312,7 +303,7 @@ if __name__ == '__main__':
     import numpy as np
     import matplotlib.pyplot as plt
 
-    num_neurons = 1
+    num_neurons = 2
 
     t_span = (0, 6000)
     def zero_input_func(t):
@@ -324,21 +315,21 @@ if __name__ == '__main__':
         else:
             return np.full(num_neurons, 0.5)
 
-    print("Start Simulating Bursting Type Neuron...")
-    bursting_neuron = PinskyRinzelModel(neuron_type=["bursting"], synapse_type=["AMPA"], dt=0.05)
-    sol_bursting = bursting_neuron.simulate(t_span, spike_input_function=zero_input_func, current_input_function=DC_input_func)
-    print("End Simulating Bursting Type Neuron...")
+    print("Start Simulating Neuron...")
+    neuron = PinskyRinzelModel(num_neurons, neuron_type=["bursting", "spiking"], synapse_type=["AMPA", "AMPA"], dt=0.05)
+    sol = neuron.simulate(t_span, spike_input_function=zero_input_func, current_input_function=DC_input_func)
+    print("End Simulating Neuron...")
     
-    print("Start Simulating Spiking Type Neuron...")
-    spiking_neuron = PinskyRinzelModel(neuron_type=["spiking"], synapse_type=["AMPA"], dt=0.05)
-    sol_spiking  = spiking_neuron.simulate(t_span, spike_input_function=zero_input_func, current_input_function=DC_input_func)
-    print("End Simulating Spiking Type Neuron...")
+    #print("Start Simulating Spiking Type Neuron...")
+    #spiking_neuron = PinskyRinzelModel(neuron_type=["spiking"], synapse_type=["AMPA"], dt=0.05)
+    #sol_spiking  = spiking_neuron.simulate(t_span, spike_input_function=zero_input_func, current_input_function=DC_input_func)
+    #print("End Simulating Spiking Type Neuron...")
     
     plt.figure(figsize=(10, 8))
 
     plt.subplot(2, 1, 1)
-    t_plot_bursting = sol_bursting.t[sol_bursting.t >= 4600]
-    Vs_plot_bursting = sol_bursting.y[sol_bursting.t >= 4600, 0, 0]
+    t_plot_bursting = sol.t[sol.t >= 4600]
+    Vs_plot_bursting = sol.y[sol.t >= 4600, 0, 0]
     #t_plot_bursting = sol_bursting.t
     #Vs_plot_bursting = sol_bursting.y[0, :]
     plt.plot(t_plot_bursting, Vs_plot_bursting, color='blue')
@@ -350,8 +341,8 @@ if __name__ == '__main__':
     
     plt.subplot(2, 1, 2)
     #print(np.shape(sol_spiking.y))
-    t_plot_spiking = sol_spiking.t[sol_spiking.t >= 4600]
-    Vs_plot_spiking = sol_spiking.y[sol_spiking.t >= 4600, 0, 0]
+    t_plot_spiking = sol.t[sol.t >= 4600]
+    Vs_plot_spiking = sol.y[sol.t >= 4600, 1, 0]
     #t_plot_spiking = sol_spiking.t
     #Vs_plot_spiking = sol_spiking.y[0, :]
     plt.plot(t_plot_spiking, Vs_plot_spiking, color='red')
