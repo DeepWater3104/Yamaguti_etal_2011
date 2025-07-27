@@ -2,8 +2,9 @@ import numpy as np
 from scipy.integrate import solve_ivp
 
 class PinskyRinzelModel:
-    def __init__(self, neuron_type="bursting", synapse_type="NMDA", dt=0.05):
+    def __init__(self, num_neurons=1, neuron_type="bursting", synapse_type="NMDA", dt=0.05):
         self.dt = dt
+        self.num_neurons = num_neurons
         self.params = self._set_neuron_params(neuron_type)
         self.params.update(self._set_synapse_params(synapse_type))
         self.V_th = 0.0
@@ -23,7 +24,7 @@ class PinskyRinzelModel:
         }
 
     def _set_neuron_params(self, neuron_type):
-        params = {
+        params_dict = {
             'Cm': 3.0, # OK
             'gc': 2.1, # OK
             'p': 0.5,  # OK
@@ -43,29 +44,39 @@ class PinskyRinzelModel:
             'bCa': 0.075  # not specified
         }
 
-        if neuron_type == "spiking":
-            params['gCa'] = 2.5
-            params['gKDR'] = 25.0
-        elif neuron_type != "bursting":
-            raise ValueError("neuron_type must be 'bursting' or 'spiking'")
+        params = {}
+        for key in params_dict:
+            params[key] = np.full(self.num_neurons, params_dict[key])
+
+        for neuron_idx in range(self.num_neurons):
+            if neuron_type[neuron_idx] == "spiking":
+                params['gCa'][neuron_idx] = 2.5
+                params['gKDR'][neuron_idx] = 25.0
+            elif neuron_type != "bursting":
+                raise ValueError("neuron_type must be 'bursting' or 'spiking'")
         return params
 
     def _set_synapse_params(self, synapse_type):
-        params = {
+        params_dict = {
             'VAMPA': 0.0,
             'VNMDA': 0.0,
             'gAMPA': 0.0,
             'gNMDA': 0.0
         }
 
-        if synapse_type == "BOTH":
-            params['gAMPA'] = 0.004 # OK
-            params['gNMDA'] = 0.01 # OK
-        elif synapse_type == "AMPA":
-            params['gAMPA'] = 0.01 # OK
-            params['gNMDA'] = 0.0 # OK
-        else:
-            raise ValueError("synapse_type must be 'AMPA' or 'BOTH'")
+        params = {}
+        for key in params_dict:
+            params[key] = np.full(self.num_neurons, params_dict[key])
+
+        for neuron_idx in range(self.num_neurons):
+            if synapse_type[neuron_idx] == "BOTH":
+                params['gAMPA'][neuron_idx] = 0.004 # OK
+                params['gNMDA'][neuron_idx] = 0.01 # OK
+            elif synapse_type == "AMPA":
+                params['gAMPA'][neuron_idx] = 0.01 # OK
+                params['gNMDA'][neuron_idx] = 0.0 # OK
+            else:
+                raise ValueError("synapse_type must be 'AMPA' or 'BOTH'")
         return params
 
     # --- ionic current ---
@@ -195,8 +206,11 @@ class PinskyRinzelModel:
         return np.array([dVs_dt, dVd_dt, dCa_dt, dm_dt, dh_dt, dn_dt, ds_dt, dc_dt, dq_dt, dGa_dt_val, dGn_dt_val])
 
     def runge_kutta4(self, func, t_span, y0, t_eval, spike_input_function, current_input_function):
-        y_history = np.zeros((np.size(y0), np.size(t_eval)))
-        y_history[:, 0] = y0
+        y_history = {}
+        for key in y0:
+            y_history[key] = np.zeros((self.num_neurons, np.size(t_eval)))
+            y_history[key][:, 0] = y0[key]
+
         current_y       = y0
 
         for t_idx in range(np.size(t_eval)-1):
@@ -219,23 +233,26 @@ class PinskyRinzelModel:
         return sol
 
     
-    def simulate(self, t_span, y0=None, spike_input_function=None, current_input_function=None):
+    def simulate(self, t_span, y0_dict=None, spike_input_function=None, current_input_function=None):
         # set intitial value
-        if y0 is None:
-            y0_list = [
-                self.initial_conditions['Vs'],
-                self.initial_conditions['Vd'],
-                self.initial_conditions['Ca'],
-                self.initial_conditions['m'],
-                self.initial_conditions['h'],
-                self.initial_conditions['n'],
-                self.initial_conditions['s'],
-                self.initial_conditions['c'],
-                self.initial_conditions['q'],
-                self.initial_conditions['Ga'],
-                self.initial_conditions['Gn']
+        if y0_dict is None:
+            y0_dict = [
+                'Vs', self.initial_conditions['Vs'],
+                'Vd', self.initial_conditions['Vd'],
+                'Ca', self.initial_conditions['Ca'],
+                'm', self.initial_conditions['m'],
+                'n', self.initial_conditions['h'],
+                's', self.initial_conditions['n'],
+                'c', self.initial_conditions['s'],
+                'q', self.initial_conditions['c'],
+                '', self.initial_conditions['q'],
+                'Ga', self.initial_conditions['Ga'],
+                'Gn', self.initial_conditions['Gn']
             ]
-            y0 = np.array(y0_list)
+        
+        y0 = {}
+        for key in y0_dict:
+            y0[key] = np.full(self.num_neurons, y0_dict[key])
 
         # translate spike input and current input into ODE
         def ode_func(t, state_vars, spike_input_function, current_input_function):
