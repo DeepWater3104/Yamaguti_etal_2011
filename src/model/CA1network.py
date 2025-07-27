@@ -11,7 +11,7 @@ class CA1Network:
         self.dt = dt
         self.rng = np.random.default_rng(seed)
 
-        ca1_neurons = PinskyRinzelModel(neuron_type=neuron_type, synapse_type=synapse_type, dt=dt)
+        self.ca1_neurons = PinskyRinzelModel(neuron_type=neuron_type, synapse_type=synapse_type, dt=dt)
         self.num_ca3_neurons = num_ca1_neurons # 仮にCA3ニューロン数とCA1ニューロン数を同じにする
         self.p_fi = 0.1 # 論文 Section 3.1, probability of taking value 1 is p_fi=0.1
         self.ca3_elementary_patterns = self._generate_ca3_patterns()
@@ -38,23 +38,12 @@ class CA1Network:
         return self.tilde_w * weights # multiply scaling factor
 
     def _get_initial_network_state(self):
-        all_y0 = []
-        for neuron in self.ca1_neurons:
-            y0_list = [
-                neuron.initial_conditions['Vs'],
-                neuron.initial_conditions['Vd'],
-                neuron.initial_conditions['Ca'],
-                neuron.initial_conditions['m'],
-                neuron.initial_conditions['h'],
-                neuron.initial_conditions['n'],
-                neuron.initial_conditions['s'],
-                neuron.initial_conditions['c'],
-                neuron.initial_conditions['q'],
-                neuron.initial_conditions['Ga'],
-                neuron.initial_conditions['Gn']
-            ]
-            all_y0.extend(y0_list)
-        return np.array(all_y0)
+        # set intitial value(need further modification for heterogeneous initial value)
+        y0 = np.zeros((self.num_ca1_neurons, len(self.ca1_neurons.state_vars_key_to_idx)))
+        for key in self.ca1_neurons.initial_conditions:
+            y0[:, self.ca1_neurons.state_vars_key_to_idx[key]] = np.full(self.num_ca1_neurons, self.ca1_neurons.initial_conditions[key])
+
+        return y0
 
     def calculate_ca1_input_spike(self, current_ca3_pattern_idx):
         if not (0 <= current_ca3_pattern_idx < self.num_ca3_patterns):
@@ -66,31 +55,33 @@ class CA1Network:
         return input_currents
     
     def network_equations(self, t, all_state_vars, ca3_input_pattern_idx_at_t):
-        d_all_state_vars_dt = []
-        
+        #d_all_state_vars_dt = []
+        #
         if ca3_input_pattern_idx_at_t != -1: # while stimuli from CA3 are delivered
-            per_neuron_synaptic_input = self.calculate_ca1_input_spike(ca3_input_pattern_idx_at_t)
+            synaptic_input = self.calculate_ca1_input_spike(ca3_input_pattern_idx_at_t)
         else: # while stimuli from CA3 is suppressed
-            per_neuron_synaptic_input = np.zeros(self.num_ca1_neurons)
+            synaptic_input = np.zeros(self.num_ca1_neurons)
 
 
-        num_vars_per_neuron = len(self.ca1_neurons[0].initial_conditions) # 11変数
-        for i, neuron in enumerate(self.ca1_neurons):
-            neuron_state_vars = all_state_vars[i * num_vars_per_neuron : (i + 1) * num_vars_per_neuron]
-            
-            synaptic_input_for_neuron = per_neuron_synaptic_input[i]
-            d_neuron_state_vars_dt = neuron.equations(
-                t, 
-                neuron_state_vars, 
-                input_signal_val=synaptic_input_for_neuron,
-            )
-            d_all_state_vars_dt.extend(d_neuron_state_vars_dt)
-            
-        return d_all_state_vars_dt
+        #num_vars_per_neuron = len(self.ca1_neurons.initial_conditions) # 11変数
+        #for i, neuron in enumerate(self.ca1_neurons):
+        #    neuron_state_vars = all_state_vars[i * num_vars_per_neuron : (i + 1) * num_vars_per_neuron]
+        #    
+        #    synaptic_input_for_neuron = per_neuron_synaptic_input[i]
+        #    d_neuron_state_vars_dt = neuron.equations(
+        #        t, 
+        #        neuron_state_vars, 
+        #        input_signal_val=synaptic_input_for_neuron,
+        #    )
+        #    d_all_state_vars_dt.extend(d_neuron_state_vars_dt)
+        #    
+        #return d_all_state_vars_dt
+        #print(np.shape(all_state_vars))
+        return self.ca1_neurons.equations(t, all_state_vars, synaptic_input, np.zeros(self.num_ca1_neurons))
 
     def runge_kutta4(self, func, t_span, y0, t_eval, network_input_func, ca3_input_sequence, ca3_input_interval_T):
         current_y       = y0
-        y_history = np.zeros((np.size(y0), np.size(t_eval)))
+        y_history = np.zeros((np.size(t_eval), self.num_ca1_neurons, len(self.ca1_neurons.state_vars_key_to_idx)))
 
         # 一回だけupdateする
         current_y = y0
@@ -100,7 +91,7 @@ class CA1Network:
         k3 = np.array(func(t_eval[0] - dt + dt/2, current_y + dt/2 * k2, network_input_func))
         k4 = np.array(func(t_eval[0] - dt + dt,   current_y + dt   * k3, network_input_func))
         current_y = current_y + (dt / 6) * (k1 + 2*k2 + 2*k3 + k4)
-        y_history[:, 0] = current_y
+        y_history[0, :, :] = current_y
 
         for t_idx in range(np.size(t_eval)-1):
             dt = t_eval[t_idx+1] - t_eval[t_idx]
@@ -109,7 +100,7 @@ class CA1Network:
             k3 = np.array(func(t_eval[t_idx] + dt/2, current_y + dt/2 * k2, network_input_func))
             k4 = np.array(func(t_eval[t_idx] + dt,   current_y + dt   * k3, network_input_func))
             current_y = current_y + (dt / 6) * (k1 + 2*k2 + 2*k3 + k4)
-            y_history[:, t_idx+1] = current_y
+            y_history[t_idx+1, :, :] = current_y
 
         class SimResult:
             def __init__(self, averaged_vs_vector, spike_counts_vector):
@@ -125,7 +116,9 @@ class CA1Network:
         spike_counts_matrix= np.zeros((self.num_ca1_neurons, num_intervals))
         discrete_t_eval = np.array([i * ca3_input_interval_T for i in range(num_intervals)])
 
-        for discrete_t_idx in range(num_intervals):
+        from tqdm import tqdm
+        for discrete_t_idx in tqdm(range(num_intervals), desc="Solving intervals"):
+        #for discrete_t_idx in range(num_intervals):
             t_eval_rk4 = t_eval[((discrete_t_idx * ca3_input_interval_T) <= t_eval) & (t_eval < (discrete_t_idx+1)*ca3_input_interval_T)]
             t_span_rk4 = (t_eval_rk4[0], t_eval_rk4[-1])
             sr = self.runge_kutta4(func, t_span_rk4, y0,  t_eval_rk4, network_input_func, ca3_input_sequence, ca3_input_interval_T)
@@ -138,7 +131,7 @@ class CA1Network:
                 self.t = t
                 self.averaged_vs_matrix  = averaged_vs_matrix 
                 self.spike_counts_matrix = spike_counts_matrix
-        sol = Sol(discrete_t_eval, averaged_matrix, spike_counts_matrix)
+        sol = Sol(discrete_t_eval, averaged_vs_matrix, spike_counts_matrix)
         return sol
 
     def simulate_network(self, t_span, ca3_input_sequence, ca3_input_interval_T,
@@ -151,8 +144,6 @@ class CA1Network:
                     return ca3_input_sequence[k] # 現在のCA3パターンインデックスを返す
             return -1 # 入力がない期間は-1を返す (network_equationsでゼロ入力として処理)
 
-        initial_y0 = self.initial_network_state
-
         t_eval = np.arange(t_span[0], t_span[1], self.dt)
 
         def ode_wrapper(t, all_state_vars, network_input_func):
@@ -162,7 +153,7 @@ class CA1Network:
         try:
             #sol = solve_ivp(ode_wrapper, t_span, initial_y0, method='RK45', t_eval=t_eval, rtol=1e-5, atol=1e-8)
             #return sol
-            sol = self.solve_until_end(ode_wrapper, t_span, initial_y0, t_eval, network_input_func, ca3_input_sequence, ca3_input_interval_T)
+            sol = self.solve_until_end(ode_wrapper, t_span, self.initial_network_state, t_eval, network_input_func, ca3_input_sequence, ca3_input_interval_T)
         except ValueError as e:
             print(f"Error during network simulation: {e}")
             print("This might be due to numerical instability. Consider adjusting initial conditions, dt, or solver tolerances.")
@@ -190,30 +181,25 @@ class CA1Network:
         }
         return data
 
-    def get_all_soma_membrane_potentials(self, sol):
-        if sol is None:
-            print("Simulation result (sol) is None. Cannot extract Vs data.")
-            return None
+    #def get_all_soma_membrane_potentials(self, sol):
+    #    if sol is None:
+    #        print("Simulation result (sol) is None. Cannot extract Vs data.")
+    #        return None
 
-        num_vars_per_neuron = len(self.ca1_neurons[0].initial_conditions)
-        
-        all_vs_data = []
-        for i in range(self.num_ca1_neurons):
-            vs_idx = i * num_vars_per_neuron # 各ニューロンのVsのインデックス
-            all_vs_data.append(sol.y[vs_idx, :])
-        
-        return np.array(all_vs_data)
+    #    all_vs_data = []
+    #    for i in range(self.num_ca1_neurons):
+    #        all_vs_data.append(sol.y[])
+    #    
+    #    return np.array(all_vs_data)
 
     def get_all_soma_membrane_potentials(self, y):
         if y is None:
             print("y_history_data is None. Cannot extract Vs data.")
             return None
-        num_vars_per_neuron = len(self.ca1_neurons[0].initial_conditions)
         
         all_vs_data = []
         for i in range(self.num_ca1_neurons):
-            vs_idx = i * num_vars_per_neuron # 各ニューロンのVsのインデックス
-            all_vs_data.append(y[vs_idx, :])
+            all_vs_data.append(y[:, i, 0])
         
         return np.array(all_vs_data)
       
@@ -293,7 +279,7 @@ class CA1Network:
 
         for neuron_idx in range(self.num_ca1_neurons):
             # PinskyRinzelModel インスタンスの count_spikes_in_trace メソッドを使用
-            spike_counts_matrix[neuron_idx] = self.ca1_neurons[neuron_idx].count_spikes_in_trace(all_vs_matrix)
+            spike_counts_matrix[neuron_idx] = self.ca1_neurons.count_spikes_in_trace(all_vs_matrix[neuron_idx])
 
         return spike_counts_matrix
 
@@ -322,14 +308,14 @@ if __name__ == '__main__':
 
 
     # Parameters
-    num_ca1 = 100              # CA1ニューロン数 (論文 Figure 9で100まで)
+    num_ca1_neurons = 100              # CA1ニューロン数 (論文 Figure 9で100まで)
     num_ca3_patterns = 20      # M=100 (論文では具体的な値が指定されていない)
     num_ca3_patterns_input = 3 # m=3 (主成分空間の次元と一致させる)
     t_interval_T = 100.0       # T=100ms (論文 Figure 4) 
     duration_delta = 5.0       # delta=5ms (論文 Section 3.1) 
     sim_dt = 0.05              # シミュレーションタイムステップ 
-    neuron_type  = ["bursting" for _ in range(num_neurons)]
-    synapse_type = ["BOTH"     for _ in range(num_neurons)]
+    neuron_type  = ["bursting" for _ in range(num_ca1_neurons)]
+    synapse_type = ["BOTH"     for _ in range(num_ca1_neurons)]
     sequence_length = 1000     # T間隔の数
     t_span_network = (0, t_interval_T * sequence_length) # 0ms から 1000ms
     rng = np.random.default_rng(42)
@@ -340,9 +326,9 @@ if __name__ == '__main__':
         ca3_input_sequence[input_idx] = selected_numbers[ca3_input_sequence[input_idx]]
     #print(f"Generated CA3 input sequence: {ca3_input_sequence}")
 
-    print(f"Initializing CA1 Network with {num_ca1} neurons...")
+    print(f"Initializing CA1 Network with {num_ca1_neurons} neurons...")
     ca1_network = CA1Network(
-        num_ca1_neurons=num_ca1,
+        num_ca1_neurons=num_ca1_neurons,
         num_ca3_patterns=num_ca3_patterns,
         num_ca3_patterns_input=num_ca3_patterns_input,
         neuron_type=neuron_type,
@@ -369,15 +355,15 @@ if __name__ == '__main__':
     if network_sol is not None:
         from matplotlib import pyplot as plt
         plt.figure(figsize=(12, 8))
-        num_neurons_to_plot = min(5, num_ca1)
+        num_neurons_to_plot = min(5, num_ca1_neurons)
 
         # transform data
         #all_vs_matrix = ca1_network.get_all_soma_membrane_potentials(network_sol)
         #averaged_vs_matrix = ca1_network.get_averaged_soma_potentials(network_sol, t_interval_T)
         #spike_counts_matrix = ca1_network.get_spike_counts(network_sol, t_interval_T)
         #print(f"Shape of continuous Vs matrix: {all_vs_matrix.shape}")
-        print(f"Shape of averaged Vs matrix: {averaged_vs_matrix.shape}")
-        print(f"Shape of spike counts matrix: {spike_counts_matrix.shape}")
+        print(f"Shape of averaged Vs matrix: {network_sol.averaged_vs_matrix.shape}")
+        print(f"Shape of spike counts matrix: {network_sol.spike_counts_matrix.shape}")
 
 
         # figure 1
@@ -485,7 +471,7 @@ if __name__ == '__main__':
         fig_pca = plt.figure(figsize=(10, 8))
         ax_pca = fig_pca.add_subplot(111, projection='3d')
 
-        X_pca = network_solaveraged_vs_matrix.T 
+        X_pca = network_sol.averaged_vs_matrix.T 
         print(f"Shape of data for PCA (intervals x neurons): {X_pca.shape}")
         pca = PCA(n_components=3)
         principal_components = pca.fit_transform(X_pca)
