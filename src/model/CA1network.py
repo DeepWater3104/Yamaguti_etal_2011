@@ -609,15 +609,15 @@ if __name__ == '__main__':
         plt.savefig("../figure/PCA_spikes_depth2_" + filename_parts + ".png")
         print("PCA 3D plot saved successfully.")
         
-        # store data to npy files
+        # store data to npz files
         if network_sol.averaged_vs_matrix is not None:
-            output_filename = "../data/averaged_vs" + filename_parts + ".npy"
+            output_filename = "../data/averaged_vs" + filename_parts
             np.savez_compressed(output_filename,
                                  time=network_sol.t,
                                  soma_potentials=network_sol.averaged_vs_matrix)
             print(f"All Vs matrix saved to {output_filename}")
         if network_sol.spike_counts_matrix is not None:
-            output_filename = "../data/spike_counts" + filename_parts + ".npy"
+            output_filename = "../data/spike_counts" + filename_parts
             np.savez_compressed(output_filename,
                                  time=network_sol.t,
                                  soma_potentials=network_sol.spike_counts_matrix)
