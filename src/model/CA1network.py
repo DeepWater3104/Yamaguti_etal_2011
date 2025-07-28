@@ -350,7 +350,7 @@ if __name__ == '__main__':
         ca3_input_duration_delta=duration_delta,
     )
     end = time.time()
-    print("Network simulation completed:{end - start}")
+    print("Network simulation completed:{end - start:.4f}")
 
     if network_sol is not None:
         from matplotlib import pyplot as plt
