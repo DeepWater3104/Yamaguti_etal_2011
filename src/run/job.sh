@@ -10,22 +10,20 @@
 #PJM -s 
 #PJM -x PJM_LLIO_GFSCACHE=/vol0002
 
-#module load Python3-CN
+module load Python3-CN
 
-#. /vol0004/apps/oss/spack/share/spack/setup-env.sh
-#
-#module load Python3-CN
-#export FLIB_CNTL_BARRIER_ERR=FALSE
+. /vol0004/apps/oss/spack/share/spack/setup-env.sh
+export FLIB_CNTL_BARRIER_ERR=FALSE
 
 #spack load /fhakchp # python@3.8.12%fj@4.7.0
 #spack load /dgmiy5n # py-numpy@1.25.2%fj@4.10.0
 #spack load /qqrwvm6 # py-scipy@1.8.1
 
-#spack load /hcqvcsc # py-scikit-learn@1.3.2
-#spack load /2h4rydm # py-matplotlib@3.3.4
-#spack find --loaded # see the list of loaded modules
-#
-#export LD_LIBRARY_PATH=/lib64:
+spack load /hcqvcsc # py-scikit-learn@1.3.2
+spack load /2h4rydm # py-matplotlib@3.3.4
+spack find --loaded # see the list of loaded modules
+
+export LD_LIBRARY_PATH=/lib64:/opt/FJSVxtclanga/tcsds-1.2.41/lib64:/home/apps/oss/mscp/lib64
 
 cd ../model
 #python3 CA1network.py 

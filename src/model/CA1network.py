@@ -1,5 +1,5 @@
 import numpy as np
-from scipy.integrate import odeint, solve_ivp
+#from scipy.integrate import odeint, solve_ivp
 from pinsky_rinzel_model import PinskyRinzelModel 
 
 class CA1Network:
@@ -116,9 +116,9 @@ class CA1Network:
         spike_counts_matrix= np.zeros((self.num_ca1_neurons, num_intervals))
         discrete_t_eval = np.array([i * ca3_input_interval_T for i in range(num_intervals)])
 
-        from tqdm import tqdm
-        for discrete_t_idx in tqdm(range(num_intervals), desc="Solving intervals"):
-        #for discrete_t_idx in range(num_intervals):
+        #from tqdm import tqdm
+        #for discrete_t_idx in tqdm(range(num_intervals), desc="Solving intervals"):
+        for discrete_t_idx in range(num_intervals):
             t_eval_rk4 = t_eval[((discrete_t_idx * ca3_input_interval_T) <= t_eval) & (t_eval < (discrete_t_idx+1)*ca3_input_interval_T)]
             t_span_rk4 = (t_eval_rk4[0], t_eval_rk4[-1])
             sr = self.runge_kutta4(func, t_span_rk4, y0,  t_eval_rk4, network_input_func, ca3_input_sequence, ca3_input_interval_T)

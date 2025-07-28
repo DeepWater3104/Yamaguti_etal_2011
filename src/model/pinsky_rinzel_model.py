@@ -1,5 +1,5 @@
 import numpy as np
-from scipy.integrate import solve_ivp
+#from scipy.integrate import solve_ivp
 
 class PinskyRinzelModel:
     def __init__(self, num_neurons=1, neuron_type="bursting", synapse_type="AMPA", dt=0.05):
