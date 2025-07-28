@@ -30,17 +30,18 @@
 cd ../model
 #python3 CA1network.py 
 #W_TILDES="0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0"
-W_TILDES="0.005 0.01 0.015 0.02 0.025 0.03 0.035 0.04 0.045 0.05 0.055 0.06 0.065 0.07 0.075 0.08 0.085 0.09 0.095 0.1"
+#W_TILDES="0.005 0.01 0.015 0.02 0.025 0.03 0.035 0.04 0.045 0.05 0.055 0.06 0.065 0.07 0.075 0.08 0.085 0.09 0.095 0.1"
+W_TILDES="0.0025 0.005 0.0075 0.01 0.0125 0.015 0.0175 0.02 0.0225 0.025 0.0275 0.03 0.0325 0.035 0.0375 0.04 0.0425 0.045 0.0475 0.05"
 
 running_jobs_count() {
   ps r | wc -l
 }
-MAX_PARALLEL_JOBS=5
+MAX_PARALLEL_JOBS=24
 
 for WT in $W_TILDES; do
     echo "Running simulation with w_tilde = ${WT}"
     
-    python3 CA1network.py --w_tilde ${WT}
+    python3 CA1network.py --w_tilde ${WT} &
     
     while (( $(running_jobs_count) >= MAX_PARALLEL_JOBS )); do
       sleep 1
