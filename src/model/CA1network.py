@@ -3,7 +3,7 @@ from scipy.integrate import odeint, solve_ivp
 from pinsky_rinzel_model import PinskyRinzelModel 
 
 class CA1Network:
-    def __init__(self, num_ca1_neurons=100, num_ca3_patterns=100, num_ca3_patterns_input=3,
+    def __init__(self, num_ca1_neurons=100, num_ca3_neurons=100, num_ca3_patterns=100, num_ca3_patterns_input=3,
                  neuron_type="bursting", synapse_type="BOTH", w_tilde=0.01, dt=0.05, seed=None):
         self.num_ca1_neurons        = num_ca1_neurons
         self.num_ca3_patterns       = num_ca3_patterns       # M (論文の Section 3.1)
@@ -12,7 +12,7 @@ class CA1Network:
         self.rng = np.random.default_rng(seed)
 
         self.ca1_neurons = PinskyRinzelModel(neuron_type=neuron_type, synapse_type=synapse_type, dt=dt)
-        self.num_ca3_neurons = num_ca1_neurons # 仮にCA3ニューロン数とCA1ニューロン数を同じにする
+        self.num_ca3_neurons = num_ca3_neurons # 仮にCA3ニューロン数とCA1ニューロン数を同じにする
         self.p_fi = 0.1 # 論文 Section 3.1, probability of taking value 1 is p_fi=0.1
         self.ca3_elementary_patterns = self._generate_ca3_patterns()
         self.tilde_w = w_tilde # scaling factor for synaptic weight
@@ -116,9 +116,9 @@ class CA1Network:
         spike_counts_matrix= np.zeros((self.num_ca1_neurons, num_intervals))
         discrete_t_eval = np.array([i * ca3_input_interval_T for i in range(num_intervals)])
 
-        from tqdm import tqdm
-        for discrete_t_idx in tqdm(range(num_intervals), desc="Solving intervals"):
-        #for discrete_t_idx in range(num_intervals):
+        #from tqdm import tqdm
+        #for discrete_t_idx in tqdm(range(num_intervals), desc="Solving intervals"):
+        for discrete_t_idx in range(num_intervals):
             t_eval_rk4 = t_eval[((discrete_t_idx * ca3_input_interval_T) <= t_eval) & (t_eval < (discrete_t_idx+1)*ca3_input_interval_T)]
             t_span_rk4 = (t_eval_rk4[0], t_eval_rk4[-1])
             sr = self.runge_kutta4(func, t_span_rk4, y0,  t_eval_rk4, network_input_func, ca3_input_sequence, ca3_input_interval_T)
@@ -292,12 +292,21 @@ if __name__ == '__main__':
         default=0.01, # デフォルト値
         help='Scaling factor of synaptic weight'
     )
+    parser.add_argument(
+        '--num_ca3_neurons',
+        type=int,
+        default=100, # デフォルト値
+        help='Number of neurons in CA3'
+    )
     args = parser.parse_args()
     w_tilde = args.w_tilde
+    num_ca3_neurons = args.num_ca3_neurons
 
     print(f"Scaling fact or of synaptic weight : {w_tilde}")
+    print(f"Number of njeurons in CA3 : {num_ca3_neurons}")
     filename_parts_list = []
-    filename_parts_list.append(f"WT{w_tilde:.3f}".replace('.', 'p')) # 小数点を'p'に変換してファイル名に含める
+    filename_parts_list.append(f"WT{w_tilde:.4f}".replace('.', 'p')) # 小数点を'p'に変換してファイル名に含める
+    filename_parts_list.append(f"NCA3{num_ca3_neurons:}") # 小数点を'p'に変換してファイル名に含める
     filename = ""
     if filename_parts_list:
         filename_parts = f"{'_'.join(filename_parts_list)}"
@@ -329,6 +338,7 @@ if __name__ == '__main__':
     print(f"Initializing CA1 Network with {num_ca1_neurons} neurons...")
     ca1_network = CA1Network(
         num_ca1_neurons=num_ca1_neurons,
+        num_ca3_neurons=num_ca3_neurons,
         num_ca3_patterns=num_ca3_patterns,
         num_ca3_patterns_input=num_ca3_patterns_input,
         neuron_type=neuron_type,
@@ -350,7 +360,7 @@ if __name__ == '__main__':
         ca3_input_duration_delta=duration_delta,
     )
     end = time.time()
-    print("Network simulation completed:{end - start:.4f}")
+    print(f"Network simulation completed:{end - start:.4f}")
 
     if network_sol is not None:
         from matplotlib import pyplot as plt
@@ -557,7 +567,7 @@ if __name__ == '__main__':
         ax_pca.set_xlabel('Principal Component 1 (u1)')
         ax_pca.set_ylabel('Principal Component 2 (u2)')
         ax_pca.set_zlabel('Principal Component 3 (u3)')
-        ax_pca.set_title(f'PCA of Averaged Soma Potentials (m={ca1_network.num_ca3_patterns_input})')
+        ax_pca.set_title(f'PCA of Number of Spikes (m={ca1_network.num_ca3_patterns_input})')
         ax_pca.grid(True)
         plt.tight_layout()
         #plt.savefig("../figure/PCA_depth1.png")
@@ -593,7 +603,7 @@ if __name__ == '__main__':
         ax_pca.set_xlabel('Principal Component 1 (u1)')
         ax_pca.set_ylabel('Principal Component 2 (u2)')
         ax_pca.set_zlabel('Principal Component 3 (u3)')
-        ax_pca.set_title(f'PCA of Averaged Soma Potentials (m={ca1_network.num_ca3_patterns_input})')
+        ax_pca.set_title(f'PCA of Number of Spikes (m={ca1_network.num_ca3_patterns_input})')
         ax_pca.grid(True)
         plt.tight_layout()
         plt.savefig("../figure/PCA_spikes_depth2_" + filename_parts + ".png")
