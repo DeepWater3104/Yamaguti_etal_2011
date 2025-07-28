@@ -306,7 +306,7 @@ if __name__ == '__main__':
     print(f"Number of njeurons in CA3 : {num_ca3_neurons}")
     filename_parts_list = []
     filename_parts_list.append(f"WT{w_tilde:.4f}".replace('.', 'p')) # 小数点を'p'に変換してファイル名に含める
-    filename_parts_list.append(f"NCA3{num_ca3_neurons:}") # 小数点を'p'に変換してファイル名に含める
+    filename_parts_list.append(f"NC3N{num_ca3_neurons:04d}") # 小数点を'p'に変換してファイル名に含める
     filename = ""
     if filename_parts_list:
         filename_parts = f"{'_'.join(filename_parts_list)}"
