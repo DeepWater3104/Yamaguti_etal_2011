@@ -3,7 +3,8 @@ from scipy.integrate import odeint, solve_ivp
 from pinsky_rinzel_model import PinskyRinzelModel 
 
 class CA1Network:
-    def __init__(self, num_ca1_neurons=100, num_ca3_neurons=100, num_ca3_patterns=100, num_ca3_patterns_input=3,
+    def __init__(self, num_ca1_neurons=100, num_ca3_neurons=100, 
+                 num_ca3_patterns=100, num_ca3_patterns_input=3, ca3_elementary_patterns=None, 
                  neuron_type="bursting", synapse_type="BOTH", w_tilde=0.01, dt=0.05, seed=None):
         self.num_ca1_neurons        = num_ca1_neurons
         self.num_ca3_patterns       = num_ca3_patterns       # M (論文の Section 3.1)
@@ -14,7 +15,17 @@ class CA1Network:
         self.ca1_neurons = PinskyRinzelModel(neuron_type=neuron_type, synapse_type=synapse_type, dt=dt)
         self.num_ca3_neurons = num_ca3_neurons # 仮にCA3ニューロン数とCA1ニューロン数を同じにする
         self.p_fi = 0.1 # 論文 Section 3.1, probability of taking value 1 is p_fi=0.1
-        self.ca3_elementary_patterns = self._generate_ca3_patterns()
+        if ca3_elementary_patterns = None:
+            self.ca3_elementary_patterns = self._generate_ca3_patterns()
+        else:
+            if np.shape(ca3_elementary_patterns) == (num_ca3_patterns, num_ca3_neurons)
+                self.ca3_elementary_patterns = ca3_elementary_patterns
+            else:
+                print('Given the shape of ca3_elementary_patterns does not match (num_ca3_patterns, num_ca3_neurons)')
+                print('Regenerating ca3_elementary patterns so that its shape match (num_ca3_patterns, num_ca3_neurons)...')
+                self.ca3_elementary_patterns = self._generate_ca3_patterns()
+                print('Regenerated ca3_elementary_patterns')
+
         self.tilde_w = w_tilde # scaling factor for synaptic weight
         self.ca3_ca1_weights = self._initialize_ca3_ca1_weights()
         self.initial_network_state = self._get_initial_network_state()
@@ -116,9 +127,9 @@ class CA1Network:
         spike_counts_matrix= np.zeros((self.num_ca1_neurons, num_intervals))
         discrete_t_eval = np.array([i * ca3_input_interval_T for i in range(num_intervals)])
 
-        #from tqdm import tqdm
-        #for discrete_t_idx in tqdm(range(num_intervals), desc="Solving intervals"):
-        for discrete_t_idx in range(num_intervals):
+        from tqdm import tqdm
+        for discrete_t_idx in tqdm(range(num_intervals), desc="Solving intervals"):
+        #for discrete_t_idx in range(num_intervals):
             t_eval_rk4 = t_eval[((discrete_t_idx * ca3_input_interval_T) <= t_eval) & (t_eval < (discrete_t_idx+1)*ca3_input_interval_T)]
             t_span_rk4 = (t_eval_rk4[0], t_eval_rk4[-1])
             sr = self.runge_kutta4(func, t_span_rk4, y0,  t_eval_rk4, network_input_func, ca3_input_sequence, ca3_input_interval_T)
