@@ -314,6 +314,7 @@ if __name__ == '__main__':
             return np.zeros(num_neurons)
         else:
             return np.full(num_neurons, 0.5)
+            #return np.zeros(num_neurons)
 
     print("Start Simulating Neuron...")
     neuron = PinskyRinzelModel(num_neurons, neuron_type=["bursting", "spiking"], synapse_type=["AMPA", "AMPA"], dt=0.05)

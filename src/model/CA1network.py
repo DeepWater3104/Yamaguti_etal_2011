@@ -15,10 +15,10 @@ class CA1Network:
         self.ca1_neurons = PinskyRinzelModel(neuron_type=neuron_type, synapse_type=synapse_type, dt=dt)
         self.num_ca3_neurons = num_ca3_neurons # 仮にCA3ニューロン数とCA1ニューロン数を同じにする
         self.p_fi = 0.1 # 論文 Section 3.1, probability of taking value 1 is p_fi=0.1
-        if ca3_elementary_patterns = None:
+        if ca3_elementary_patterns == None:
             self.ca3_elementary_patterns = self._generate_ca3_patterns()
         else:
-            if np.shape(ca3_elementary_patterns) == (num_ca3_patterns, num_ca3_neurons)
+            if np.shape(ca3_elementary_patterns) == (num_ca3_patterns, num_ca3_neurons):
                 self.ca3_elementary_patterns = ca3_elementary_patterns
             else:
                 print('Given the shape of ca3_elementary_patterns does not match (num_ca3_patterns, num_ca3_neurons)')
@@ -334,9 +334,11 @@ if __name__ == '__main__':
     t_interval_T = 100.0       # T=100ms (論文 Figure 4) 
     duration_delta = 5.0       # delta=5ms (論文 Section 3.1) 
     sim_dt = 0.05              # シミュレーションタイムステップ 
-    neuron_type  = ["bursting" for _ in range(num_ca1_neurons)]
-    synapse_type = ["BOTH"     for _ in range(num_ca1_neurons)]
-    sequence_length = 1000     # T間隔の数
+    #neuron_type  = ["bursting" for _ in range(num_ca1_neurons)]
+    #synapse_type = ["BOTH"     for _ in range(num_ca1_neurons)]
+    neuron_type  = ["spiking" for _ in range(num_ca1_neurons)]
+    synapse_type = ["BOTH"    for _ in range(num_ca1_neurons)]
+    sequence_length = 10000     # T間隔の数
     t_span_network = (0, t_interval_T * sequence_length) # 0ms から 1000ms
     rng = np.random.default_rng(42)
     selected_numbers = rng.choice(range(num_ca3_patterns), size=num_ca3_patterns_input, replace=False)
@@ -625,13 +627,15 @@ if __name__ == '__main__':
             output_filename = "../data/averaged_vs" + filename_parts
             np.savez_compressed(output_filename,
                                  time=network_sol.t,
-                                 soma_potentials=network_sol.averaged_vs_matrix)
+                                 input_seq=ca3_input_sequence,
+                                 soma_potentials=network_sol.averaged_vs_matrix.T)
             print(f"All Vs matrix saved to {output_filename}")
         if network_sol.spike_counts_matrix is not None:
             output_filename = "../data/spike_counts" + filename_parts
             np.savez_compressed(output_filename,
                                  time=network_sol.t,
-                                 soma_potentials=network_sol.spike_counts_matrix)
+                                 input_seq=ca3_input_sequence,
+                                 soma_potentials=network_sol.spike_counts_matrix.T)
             print(f"All Vs matrix saved to {output_filename}")
 
     else:
