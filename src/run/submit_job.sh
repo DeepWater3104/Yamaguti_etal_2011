@@ -31,29 +31,30 @@ cat << EOF > job.sh
 cd ../model
 
 
-##W_TILDES="0.0025 0.0225 0.0425 0.0625 0.0825 0.1025 0.1225 0.1425 0.1625 0.1825 0.2025 0.2225 0.2425 0.2625 0.2825 0.3025 0.3225 0.3425 0.3625 0.3825 0.4025 0.4225 0.4425 0.4625 0.4825 0.5025 0.5225 0.5425 0.5625 0.5825 0.6025 0.6225 0.6425 0.6625 0.6825 0.7025 0.7225 0.7425 0.7625 0.7825 0.8025 0.8225 0.8425 0.8625 0.8825 0.9025 0.9225 0.9425 0.9625 0.9825 1.0025 1.0225 1.0425 1.0625 1.0825 1.1025 1.1225 1.1425 1.1625 1.1825 1.2025 1.2225 1.2425 1.2625 1.2825 1.3025 1.3225 1.3425 1.3625 1.3825 1.4025 1.4225 1.4425 1.4625 1.4825 1.5025 1.5225 1.5425 1.5625 1.5825 1.6025 1.6225 1.6425 1.6625 1.6825 1.7025 1.7225 1.7425 1.7625 1.7825 1.8025 1.8225 1.8425 1.8625 1.8825 1.9025 1.9225 1.9425 1.9625 1.9825 2.000"
-##W_TILDES="0.0005 0.0010 0.0015 0.0020 0.0025 0.0030 0.0035 0.0040 0.0045 0.0050 0.0055 0.0060"
-#NUM_CA3_NEURONS="100"
-#
-#running_jobs_count() {
-#  ps r | wc -l
-#}
-#MAX_PARALLEL_JOBS=24
-#
-#for NC3N in \$NUM_CA3_NEURONS; do
-#    for WT in \$W_TILDES; do
-#        echo "Running simulation with w_tilde = \${WT} num_ca3_neurons = \${NC3N}"
-#        
-#        python3 CA1network.py --w_tilde \${WT} --num_ca3_neurons \${NC3N} &
-#        
-#        while (( \$(running_jobs_count) >= MAX_PARALLEL_JOBS )); do
-#          sleep 1
-#        done
-#    done
-#done
-#wait
+W_TILDES="1.6"
+NUM_CA1_NEURONS="10 15 20 25 30 35 40 45 50 55 65 70 75 80 85 90 100"
+NUM_CA3_NEURONS="100"
 
-python3 CA1network.py
+running_jobs_count() {
+  ps r | wc -l
+}
+MAX_PARALLEL_JOBS=24
+
+for NC3N in \$NUM_CA3_NEURONS; do
+  for WT in \$W_TILDES; do
+    for NC1N in \$NUM_CA1_NEURONS; do
+      echo "Running simulation with w_tilde = \${WT} num_ca3_neurons = \${NC3N} num_ca1_neurons = \${NC1N}"
+      
+      python3 CA1network.py --w_tilde \${WT} --num_ca3_neurons \${NC3N} --num_ca1_neurons \${NC1N}&
+      
+      while (( \$(running_jobs_count) >= MAX_PARALLEL_JOBS )); do
+        sleep 1
+      done
+    done
+  done
+done
+
+wait
 
 echo "全てのシミュレーションが完了しました。"
 

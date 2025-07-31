@@ -1,116 +1,184 @@
-from sklearn import LinearDiscriminantAnalysis
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
+import numpy as np
 
-class  Linear_Discriminant_Analysis:
-    def __init__(self, ca3_input_sequence, sequence_transient_length, sequence_analysis_length, ca1_network, network_sol):
-        self.ca3_input_sequence = ca3_input_sequence
-        self.sequence_analysis_length = sequence_analysis_length
-        self.sequence_transient_length = sequence_transient_length
-        self.ca3_elementary_pattern = ca1_newtork.ca3_elemehntary_pattern
-        self.state_vector = newtork_sol.spike_counts_matrix
-        self.d_input_history = self._get_past_d_input()
-        self.lda = LinearDiscriminantAnalysis(n_component=1)
-        self.z = self._get_z_value()
+def split_data_into_groups(input_pattern, ca1_output, d, m):
+    d_input_history = np.zeros((np.size(input_pattern), d))
+    for i in range(d-1, np.size(input_pattern)):
+        d_input_history[i, :] = input_pattern[i-d+1:i+1]
 
-    def _get_past_d_input(self):
-        d_input_history = np.zeros((self.sequence_analysis_length, self.d))
-        for i in range(self.sequence_analysis_length):
-            d_input_history[i, :] = ca3_input_sequence[sequence_transient_length+i-1:sequence_transient_length+i]
+    num_groups = m**(d-1)
+    group = np.zeros(np.size(input_pattern))
+    for i in range(d-1):
+        group[i] = None
 
-    def separate_dataset(self):
-        '''
-        Separate data into 10 segments
-        '''
-        self.data_segments = 
-        self.training_data =
-        self.test_data     =
+    for i in range(d-1, np.size(input_pattern)):
+        for j in range(1, d):
+            group[i] += d_input_history[i, j] * m**(j-1)
 
-    def _get_z_value(self):
-        z = self.lda.fit(self.state_veector, self.d_input_history[:, -1]).transform(X) # only applicable for cases d=1
+    return group
 
-    def _inference_class(self):
+
+def split_data_into_segments(rng, num_data, num_segments):
+    data_to_segment = rng.integers(0, num_segments, size=num_data)
+    return data_to_segment
+
+def rename_input_pattern(input_seq):
+    new_input_pattern = np.zeros(np.size(input_seq))
+    No_input_pattern = np.unique(input_seq)
+    for idx, input in enumerate(input_seq):
+        for new_input, old_input in enumerate(No_input_pattern):
+            if input == old_input:
+                new_input_pattern[idx] = new_input
+
+    return new_input_pattern
+
+def shift_array(arr, d):
+    shift_amount = d-1
+    if shift_amount == 0:
+        return arr
+    else:
+        none_padding = np.array([None] * shift_amount, dtype=object)
+        shifted_elements = arr[:-shift_amount]
+        return np.concatenate((none_padding, shifted_elements))
+
+def _get_data_within_group(group, data_to_group, input_seq, ca1_output, m, d):
+    new_data = {}
+    new_data['latest_input'] = input_seq[np.where(data_to_group == group)]
+    new_data['oldest_input'] = shift_array(input_seq, d)
+    new_data['oldest_input']  = new_data['oldest_input'][np.where(data_to_group == group)]
+    new_data['state_vars'] = ca1_output[np.where(data_to_group == group)]
+    new_data['group'] = data_to_group[np.where(data_to_group == group)]
+    new_data['num_data'] = np.size(new_data['latest_input'])
+
+    return new_data
+
+def _get_data_within_segments(segment, data_to_segment, input_seq, ca1_output):
+    new_data = {}
+    new_data['input_seq'] = input_seq[np.where(data_to_segment == segment)]
+    new_data['state_vars'] = ca1_output[np.where(data_to_segment == segment)]
+    new_data['segment'] = data_to_segment[np.where(data_to_segment == segment)]
+    new_data['num_data'] = np.size(new_data['input_seq'])
+
+    return new_data
+
+def calculate_centroid(z, label, m):
+    centroid = []
+    for i in range(m):
+        centroid.append(np.mean(z[label==i]))
+    return centroid
+
+def classify_validate_data(centroid, z_validate):
+    estimation = np.zeros(np.size(z_validate))
+    for z_idx, z in enumerate(z_validate):
+        minimum_distance = np.max(z_validate) - np.min(z_validate)
+        for cls, centroid_of_class in enumerate(centroid):
+            if abs(centroid_of_class - z) < minimum_distance:
+                minimum_distance = abs(centroid_of_class - z)
+                estimation[z_idx] = cls
+    return estimation
+            
+def calculate_ER(estimation, ground_truth):
+    num_error = 0
+    for est, truth in zip(estimation, ground_truth):
+        if est != truth:
+            num_error += 1
+    
+    return num_error / np.size(estimation)
+
+
+def conduct_lda(label, ca1_output, data_to_segment, segment, m, d, group):
+    print(f'conduct lda for segment {segment}')
+    from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
+    lda = LinearDiscriminantAnalysis(n_components=1)
+    z = lda.fit(ca1_output[data_to_segment!=segment], label[data_to_segment!=segment].tolist()).transform(ca1_output[data_to_segment!=segment])
+    z_validate = lda.transform(ca1_output[data_to_segment==segment])
+    estimated_class = classify_validate_data(calculate_centroid(z, label[data_to_segment!=segment], m), z_validate)
+    #from matplotlib import pyplot as plt
+    #colors = ['blue', 'red']
+    #for color, i, target_name in zip(colors, [0, 1], [0, 1]):
+    #    plt.hist(z_validate[estimated_class==i],
+    #                label=target_name)
+    #plt.xlabel('LDA1')
+    #plt.ylabel('num data point')
+    #plt.legend(loc='best', shadow=False, scatterpoints=1)
+    #plt.title('LDA')
+    #output_filename = 'output_' + str(d) + '_' + str(group) + '_' + str(segment) + 'png'
+    #plt.savefig(output_filename)
+    #plt.close()
+    ER = calculate_ER(estimated_class, label[data_to_segment==segment])
+    return ER
 
 if __name__ == '__main__':
-    '''
-    Parameters
-    '''
-    num_ca1_neurons = 100      # CA1ニューロン数 (論文 Figure 9で100まで)
-    num_ca3_patterns = 20      # M=100 (論文では具体的な値が指定されていない)
-    num_ca3_patterns_input = 2 # m=2
-    t_interval_T = 100.0       # T=100ms (論文 Figure 4) 
-    duration_delta = 5.0       # delta=5ms (論文 Section 3.1) 
-    sim_dt = 0.05              # シミュレーションタイムステップ 
-    neuron_type  = ["bursting" for _ in range(num_ca1_neurons)]
-    synapse_type = ["BOTH"     for _ in range(num_ca1_neurons)]
-    sequence_transient_length = 100
-    sequence_analysis_length = 10000
-    sequence_length = sequence_analysis_length+transient_length    # T間隔の数
-    t_span_network = (0, t_interval_T * sequence_length) # 0ms から 1000ms
-    rng = np.random.default_rng(42)
-    selected_numbers = rng.choice(range(num_ca3_patterns), size=num_ca3_patterns_input, replace=False)
-    ca3_input_sequence = rng.integers(0, num_ca3_patterns_input, size=sequence_length).tolist()
-    for input_idx in range(sequence_length):
-        ca3_input_sequence[input_idx] = selected_numbers[ca3_input_sequence[input_idx]]
-
-    '''
-    Initialize CA1-CA3 network and simulate 
-    Get data sets to train LDA model
-    '''
-    print(f"Initializing CA1 Network with {num_ca1_neurons} neurons...")
-    ca1_network = CA1Network(
-        num_ca1_neurons=num_ca1_neurons,
-        num_ca3_neurons=num_ca3_neurons,
-        num_ca3_patterns=num_ca3_patterns,
-        num_ca3_patterns_input=num_ca3_patterns_input,
-        neuron_type=neuron_type,
-        synapse_type=synapse_type,
-        w_tilde = w_tilde,
-        dt=sim_dt,
-        seed=42
+    import argparse
+    parser = argparse.ArgumentParser(description='Parameters setting for the simulation')
+    parser.add_argument(
+        '--w_tilde',
+        type=float,
+        default=1.6, # デフォルト値
+        help='Scaling factor of synaptic weight'
     )
-    print("CA1 Network Initialized.")
-
-    print(f"Starting network simulation for {t_span_network[1]} ms...")
-    import time
-    start = time.time()
-    network_sol = ca1_network.simulate_network(
-        t_span=t_span_network,
-        ca3_input_sequence=ca3_input_sequence,
-        ca3_input_interval_T=t_interval_T,
-        ca3_input_duration_delta=duration_delta,
+    parser.add_argument(
+        '--num_ca3_neurons',
+        type=int,
+        default=100, # デフォルト値
+        help='Number of neurons in CA3'
     )
-    end = time.time()
-    print(f"Network simulation completed:{end - start:.4f}")
+    parser.add_argument(
+        '--num_ca1_neurons',
+        type=int,
+        default=100, # デフォルト値
+        help='Number of neurons in CA1'
+    )
+    parser.add_argument(
+        '--depth',
+        type=int,
+        default=1, # デフォルト値
+        help='length of past input to analyze'
+    )
 
-    '''
-    Create correspondance between state vector and input history of length d
-    '''
-    lda = Linear_Discriminant_Analysis(ca3_input_sequence, sequence_transient_length, sequence_analysis_length, ca1_newtork, network_sol)
-    
-    
+    args = parser.parse_args()
+    w_tilde = args.w_tilde
+    num_ca3_neurons = args.num_ca3_neurons
+    num_ca1_neurons = args.num_ca1_neurons
 
-    '''
-    Separate data sets into 10 segments
-    9 for training, 1 for validating
-    '''
-
-
-    '''
-    Train LDA model
-    '''
-
-
-    '''
-    Validate LDA model
-    '''
-
-
-    '''
-    Plot z-plane vs the number of samples
-    '''
-   
-
-    '''
-    Plot z-plane vs the number of samples
-    '''
+    filename_parts_list = []
+    filename_parts_list.append(f"WT{w_tilde:.4f}".replace('.', 'p')) # 小数点を'p'に変換してファイル名に含める
+    filename_parts_list.append(f"NC3N{num_ca3_neurons:04d}") # 小数点を'p'に変換してファイル名に含める
+    filename_parts_list.append(f"NC1N{num_ca1_neurons:04d}") # 小数点を'p'に変換してファイル名に含める
+    filename = ""
+    if filename_parts_list:
+        filename_parts = f"{'_'.join(filename_parts_list)}"
+        print(filename_parts)
+    else:
+        filename_parts = f""
+        print(filename_parts)
 
 
+    data = np.load('../data/spike_counts' + filename_parts + '.npz')
+    rng = np.random.default_rng(100)
+
+    # remove transient period
+    data_without_transient = {}
+    data_without_transient['time'] = data['time'][100:]
+    data_without_transient['state_vars'] = data['state_vars'][100:]
+    data_without_transient['input_seq'] = data['input_seq'][100:]     
+    data_without_transient['input_seq'] = rename_input_pattern(data_without_transient['input_seq'])
+
+    num_segments = 10
+    d = args.depth
+    m = 2
+    num_groups = m**(d-1)
+    num_all_data = 0
+    data_without_transient['group'] = split_data_into_groups(data_without_transient['input_seq'], data_without_transient['state_vars'], d, m)
+    for i in range(num_groups):
+        data_in_group = _get_data_within_group(i,  data_without_transient['group'], data_without_transient['input_seq'], data_without_transient['state_vars'], m, d)
+        print(f'LDA for group {i}')
+        print(f'num data in group {i} = {data_in_group['num_data']}')
+        error_rate = np.zeros(num_segments)
+        data_to_segments = split_data_into_segments(rng, data_in_group['num_data'], num_segments)
+        for j in range(num_segments):
+            error_rate[j] = conduct_lda(data_in_group['oldest_input'], data_in_group['state_vars'], data_to_segments, j, m, d, i)
+            print(error_rate[j])
+        print(np.mean(error_rate))
+        num_all_data += data_in_group['num_data']
+    print(f'number of all data is {num_all_data}')
