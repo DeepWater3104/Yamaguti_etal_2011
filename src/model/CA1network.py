@@ -315,19 +315,28 @@ if __name__ == '__main__':
         default=100, # デフォルト値
         help='Number of neurons in CA1'
     )
+    parser.add_argument(
+        '--seed',
+        type=int,
+        default=100, # デフォルト値
+        help='Number of neurons in CA1'
+    )
 
     args = parser.parse_args()
     w_tilde = args.w_tilde
     num_ca3_neurons = args.num_ca3_neurons
     num_ca1_neurons = args.num_ca1_neurons
+    seed = args.seed
 
     print(f"Scaling fact or of synaptic weight : {w_tilde}")
-    print(f"Number of njeurons in CA3 : {num_ca3_neurons}")
-    print(f"Number of njeurons in CA1 : {num_ca1_neurons}")
+    print(f"Number of neurons in CA3 : {num_ca3_neurons}")
+    print(f"Number of neurons in CA1 : {num_ca1_neurons}")
+    print(f"Seed : {seed}")
     filename_parts_list = []
     filename_parts_list.append(f"WT{w_tilde:.4f}".replace('.', 'p')) # 小数点を'p'に変換してファイル名に含める
     filename_parts_list.append(f"NC3N{num_ca3_neurons:04d}") # 小数点を'p'に変換してファイル名に含める
     filename_parts_list.append(f"NC1N{num_ca1_neurons:04d}") # 小数点を'p'に変換してファイル名に含める
+    filename_parts_list.append(f"SEED{seed:03d}") # 小数点を'p'に変換してファイル名に含める
     filename = ""
     if filename_parts_list:
         filename_parts = f"{'_'.join(filename_parts_list)}"
@@ -350,7 +359,7 @@ if __name__ == '__main__':
     synapse_type = ["BOTH"    for _ in range(num_ca1_neurons)]
     sequence_length = 10000     # T間隔の数
     t_span_network = (0, t_interval_T * sequence_length) # 0ms から 1000ms
-    rng = np.random.default_rng(42)
+    rng = np.random.default_rng(seed)
     selected_numbers = rng.choice(range(num_ca3_patterns), size=num_ca3_patterns_input, replace=False)
     #print(selected_numbers)
     ca3_input_sequence = rng.integers(0, num_ca3_patterns_input, size=sequence_length).tolist()
@@ -368,7 +377,7 @@ if __name__ == '__main__':
         synapse_type=synapse_type,
         w_tilde = w_tilde,
         dt=sim_dt,
-        seed=42
+        seed=args.seed
     )
 
     print("CA1 Network Initialized.")
