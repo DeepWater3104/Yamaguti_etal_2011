@@ -355,7 +355,7 @@ if __name__ == '__main__':
     sim_dt = 0.05              # シミュレーションタイムステップ 
     #neuron_type  = ["bursting" for _ in range(num_ca1_neurons)]
     #synapse_type = ["BOTH"     for _ in range(num_ca1_neurons)]
-    neuron_type  = ["bursting" for _ in range(num_ca1_neurons)]
+    neuron_type  = ["spiking" for _ in range(num_ca1_neurons)]
     synapse_type = ["BOTH"    for _ in range(num_ca1_neurons)]
     sequence_length = 10000     # T間隔の数
     t_span_network = (0, t_interval_T * sequence_length) # 0ms から 1000ms

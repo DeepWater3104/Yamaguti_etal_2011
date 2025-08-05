@@ -30,6 +30,12 @@ if __name__ == '__main__':
         default=[1, 2, 3, 4, 5, 6], # デフォルト値
         help='List of length of past input to analyze'
     )
+    parser.add_argument(
+        '--seeds',
+        type=int,
+        default=[0, 1, 2, 3, 4, 5], # デフォルト値
+        help='List of random seeds'
+    )
 
     args = parser.parse_args()
     w_tilde = args.w_tilde
@@ -41,50 +47,51 @@ if __name__ == '__main__':
     for d in args.depth:
         MER = []
         for num_ca1_neurons in num_ca1_neurons_list:
-            print(f"--- Processing with num_ca1_neurons = {num_ca1_neurons} ---")
-
-            filename_parts_list = []
-            filename_parts_list.append(f"WT{w_tilde:.4f}".replace('.', 'p')) # 小数点を'p'に変換してファイル名に含める
-            filename_parts_list.append(f"NC3N{num_ca3_neurons:04d}") # CA3ニューロン数をファイル名に含める
-            filename_parts_list.append(f"NC1N{num_ca1_neurons:04d}") # CA1ニューロン数をファイル名に含める
-            filename_parts = f"{'_'.join(filename_parts_list)}"
-            print(f"Loading data from file: ../data/spike_counts{filename_parts}.npz")
-
-            try:
-                data = np.load('../data/spike_counts' + filename_parts + '.npz')
-            except FileNotFoundError:
-                print(f"Error: File not found for num_ca1_neurons = {num_ca1_neurons}. Skipping this configuration.")
-                continue
-
-            rng = np.random.default_rng(100)
-
-            # remove transient period
-            data_without_transient = {}
-            data_without_transient['time'] = data['time'][100:]
-            data_without_transient['state_vars'] = data['state_vars'][100:]
-            data_without_transient['input_seq'] = data['input_seq'][100:]      
-            data_without_transient['input_seq'] = linear_discriminant_analysis.rename_input_pattern(data_without_transient['input_seq'])
-
             num_segments = 10
             m = 2
             num_groups = m**(d-1)
-            num_all_data = 0
-            data_without_transient['group'] = linear_discriminant_analysis.split_data_into_groups(data_without_transient['input_seq'], data_without_transient['state_vars'], d, m)
+            error_rate = np.zeros((len(args.seeds), num_groups, num_segments))
+            for seed_idx, seed in enumerate(args.seeds):
+                print(f"--- Processing with num_ca1_neurons = {num_ca1_neurons} ---")
 
-            error_rate = np.zeros((num_groups, num_segments))
-            for i in range(num_groups):
-                data_in_group = linear_discriminant_analysis._get_data_within_group(i, data_without_transient['group'], data_without_transient['input_seq'], data_without_transient['state_vars'], m, d)
-                print(f'\nLDA for group {i}')
-                print(f'num data in group {i} = {data_in_group["num_data"]}')
-                data_to_segments = linear_discriminant_analysis.split_data_into_segments(rng, data_in_group['num_data'], num_segments)
-                for j in range(num_segments):
-                    error_rate[i, j] = linear_discriminant_analysis.conduct_lda(data_in_group['oldest_input'], data_in_group['state_vars'], data_to_segments, j, m, d, i)
-                    print(f"Segment {j} error rate: {error_rate[i, j]}")
-                num_all_data += data_in_group['num_data']
-            
+                filename_parts_list = []
+                filename_parts_list.append(f"WT{w_tilde:.4f}".replace('.', 'p')) # 小数点を'p'に変換してファイル名に含める
+                filename_parts_list.append(f"NC3N{num_ca3_neurons:04d}") # CA3ニューロン数をファイル名に含める
+                filename_parts_list.append(f"NC1N{num_ca1_neurons:04d}") # CA1ニューロン数をファイル名に含める
+                filename_parts_list.append(f"SEED{seed:03d}") # seed
+                filename_parts = f"{'_'.join(filename_parts_list)}"
+                print(f"Loading data from file: ../data/spike_counts{filename_parts}.npz")
+
+                try:
+                    data = np.load('../data/spike_counts' + filename_parts + '.npz')
+                except FileNotFoundError:
+                    print(f"Error: File not found for num_ca1_neurons = {num_ca1_neurons}. Skipping this configuration.")
+                    continue
+
+                rng = np.random.default_rng(100)
+
+                # remove transient period
+                data_without_transient = {}
+                data_without_transient['time'] = data['time'][100:]
+                data_without_transient['state_vars'] = data['state_vars'][100:]
+                data_without_transient['input_seq'] = data['input_seq'][100:]      
+                data_without_transient['input_seq'] = linear_discriminant_analysis.rename_input_pattern(data_without_transient['input_seq'])
+
+                num_all_data = 0
+                data_without_transient['group'] = linear_discriminant_analysis.split_data_into_groups(data_without_transient['input_seq'], data_without_transient['state_vars'], d, m)
+
+                for i in range(num_groups):
+                    data_in_group = linear_discriminant_analysis._get_data_within_group(i, data_without_transient['group'], data_without_transient['input_seq'], data_without_transient['state_vars'], m, d)
+                    print(f'\nLDA for group {i}')
+                    print(f'num data in group {i} = {data_in_group["num_data"]}')
+                    data_to_segments = linear_discriminant_analysis.split_data_into_segments(rng, data_in_group['num_data'], num_segments)
+                    for j in range(num_segments):
+                        error_rate[seed_idx, i, j] = linear_discriminant_analysis.conduct_lda(data_in_group['oldest_input'], data_in_group['state_vars'], data_to_segments, j, m, d, i)
+                        print(f"Segment {j} error rate: {error_rate[seed_idx, i, j]}")
+                    num_all_data += data_in_group['num_data']
+                
             print(f"Mean error rate for group {i}: {np.mean(error_rate)}")
             MER.append(np.mean(error_rate))
-            print(f'Total number of data for num_ca1_neurons = {num_ca1_neurons} is {num_all_data}\n')
 
         plt.plot(num_ca1_neurons_list, MER, label=f'depth={d}')
         plt.xlabel('num CA1 neurons')
