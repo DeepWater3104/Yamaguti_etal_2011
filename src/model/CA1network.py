@@ -304,39 +304,48 @@ if __name__ == '__main__':
         help='Scaling factor of synaptic weight'
     )
     parser.add_argument(
-        '--num_ca3_neurons',
+        '--t_interval_T',
         type=int,
         default=100, # デフォルト値
-        help='Number of neurons in CA3'
+        help='Interval of input from CA3'
     )
-    parser.add_argument(
-        '--num_ca1_neurons',
-        type=int,
-        default=100, # デフォルト値
-        help='Number of neurons in CA1'
-    )
+    #parser.add_argument(
+    #    '--num_ca3_neurons',
+    #    type=int,
+    #    default=100, # デフォルト値
+    #    help='Number of neurons in CA3'
+    #)
+    #parser.add_argument(
+    #    '--num_ca1_neurons',
+    #    type=int,
+    #    default=100, # デフォルト値
+    #    help='Number of neurons in CA1'
+    #)
     parser.add_argument(
         '--seed',
         type=int,
         default=100, # デフォルト値
-        help='Number of neurons in CA1'
+        help='seed for pseudo random number generator'
     )
 
     args = parser.parse_args()
     w_tilde = args.w_tilde
-    num_ca3_neurons = args.num_ca3_neurons
-    num_ca1_neurons = args.num_ca1_neurons
+    t_interval_T = args.t_interval_T
+    #num_ca3_neurons = args.num_ca3_neurons
+    #num_ca1_neurons = args.num_ca1_neurons
     seed = args.seed
 
     print(f"Scaling fact or of synaptic weight : {w_tilde}")
-    print(f"Number of neurons in CA3 : {num_ca3_neurons}")
-    print(f"Number of neurons in CA1 : {num_ca1_neurons}")
+    print(f"Interval of input from CA3 : {t_interval_T}")
+    #print(f"Number of neurons in CA3 : {num_ca3_neurons}")
+    #print(f"Number of neurons in CA1 : {num_ca1_neurons}")
     print(f"Seed : {seed}")
     filename_parts_list = []
     filename_parts_list.append(f"WT{w_tilde:.4f}".replace('.', 'p')) # 小数点を'p'に変換してファイル名に含める
-    filename_parts_list.append(f"NC3N{num_ca3_neurons:04d}") # 小数点を'p'に変換してファイル名に含める
-    filename_parts_list.append(f"NC1N{num_ca1_neurons:04d}") # 小数点を'p'に変換してファイル名に含める
-    filename_parts_list.append(f"SEED{seed:03d}") # 小数点を'p'に変換してファイル名に含める
+    filename_parts_list.append(f"INT{t_interval_T:03d}")
+    #filename_parts_list.append(f"NC3N{num_ca3_neurons:04d}")
+    #filename_parts_list.append(f"NC1N{num_ca1_neurons:04d}")
+    filename_parts_list.append(f"SEED{seed:03d}")
     filename = ""
     if filename_parts_list:
         filename_parts = f"{'_'.join(filename_parts_list)}"
@@ -347,16 +356,17 @@ if __name__ == '__main__':
 
 
     # Parameters
-    #num_ca1_neurons = 100              # CA1ニューロン数 (論文 Figure 9で100まで)
+    num_ca1_neurons = 100              # CA1ニューロン数 (論文 Figure 9で100まで)
+    num_ca3_neurons = 100              # CA1ニューロン数 (論文 Figure 9で100まで)
     num_ca3_patterns = 20      # M=100 (論文では具体的な値が指定されていない)
     num_ca3_patterns_input = 2 # m=3 (主成分空間の次元と一致させる)
-    t_interval_T = 100.0       # T=100ms (論文 Figure 4) 
+    #t_interval_T = 100.0       # T=100ms (論文 Figure 4) 
     duration_delta = 5.0       # delta=5ms (論文 Section 3.1) 
     sim_dt = 0.05              # シミュレーションタイムステップ 
-    #neuron_type  = ["bursting" for _ in range(num_ca1_neurons)]
-    #synapse_type = ["BOTH"     for _ in range(num_ca1_neurons)]
     neuron_type  = ["spiking" for _ in range(num_ca1_neurons)]
-    synapse_type = ["BOTH"    for _ in range(num_ca1_neurons)]
+    synapse_type = ["AMPA"     for _ in range(num_ca1_neurons)]
+    #neuron_type  = ["spiking" for _ in range(num_ca1_neurons)]
+    #synapse_type = ["BOTH"    for _ in range(num_ca1_neurons)]
     sequence_length = 10000     # T間隔の数
     t_span_network = (0, t_interval_T * sequence_length) # 0ms から 1000ms
     rng = np.random.default_rng(seed)
@@ -642,13 +652,13 @@ if __name__ == '__main__':
         #print("PCA 3D plot saved successfully.")
         
         # store data to npz files
-        if network_sol.averaged_vs_matrix is not None:
-            output_filename = "../data/averaged_vs" + filename_parts
-            np.savez_compressed(output_filename,
-                                 time=network_sol.t,
-                                 input_seq=ca3_input_sequence,
-                                 state_vars=network_sol.averaged_vs_matrix.T)
-            print(f"All Vs matrix saved to {output_filename}")
+        #if network_sol.averaged_vs_matrix is not None:
+        #    output_filename = "../data/averaged_vs" + filename_parts
+        #    np.savez_compressed(output_filename,
+        #                         time=network_sol.t,
+        #                         input_seq=ca3_input_sequence,
+        #                         state_vars=network_sol.averaged_vs_matrix.T)
+        #    print(f"All Vs matrix saved to {output_filename}")
         if network_sol.spike_counts_matrix is not None:
             output_filename = "../data/spike_counts" + filename_parts
             np.savez_compressed(output_filename,

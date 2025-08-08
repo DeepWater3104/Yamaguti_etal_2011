@@ -30,27 +30,25 @@
 cd ../model
 
 
-W_TILDES="1.6"
-NUM_CA1_NEURONS="5 10 15 20 25 30 35 40 45 50 55 60 65 70 75 80 85 90 95 100"
+W_TILDES="0.25 0.5 0.75 1.0 1.25 1.5 1.75 2.0"
+T_INTERVAL_T="25 50 75 100 125 150 175 200"
 SEEDS="0 1 2 3 4 5"
-NUM_CA3_NEURONS="100"
+
 
 running_jobs_count() {
   ps r | wc -l
 }
 MAX_PARALLEL_JOBS=24
 
-for SEED in $SEEDS; do
-  for NC3N in $NUM_CA3_NEURONS; do
-    for WT in $W_TILDES; do
-      for NC1N in $NUM_CA1_NEURONS; do
-        echo "Running simulation with w_tilde = ${WT} num_ca3_neurons = ${NC3N} num_ca1_neurons = ${NC1N}"
-        
-        python3 CA1network.py --w_tilde ${WT} --num_ca3_neurons ${NC3N} --num_ca1_neurons ${NC1N} --seed ${SEED} &
-        
-        while (( $(running_jobs_count) >= MAX_PARALLEL_JOBS )); do
-          sleep 1
-        done
+for WT in $W_TILDES; do
+  for INT in $T_INTERVAL_T; do
+    for SEED in $SEEDS; do
+      echo "Running simulation with w_tilde = ${WT} t_interval_T = ${INT} seed= ${SEED}"
+      
+      python3 CA1network.py --w_tilde ${WT} --t_interval_T ${INT} --seed ${SEED} &
+      
+      while (( $(running_jobs_count) >= MAX_PARALLEL_JOBS )); do
+        sleep 1
       done
     done
   done
